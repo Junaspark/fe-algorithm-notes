@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="个人前端算法与 JavaScript 手写题训练手册">
+  <title>前端面试算法训练手册</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <nav class="topbar">
+      <a class="brand" href="#top">Frontend Training Handbook</a>
+      <div class="top-actions">
+        <button id="themeBtn" class="ghost" type="button" aria-label="切换主题">◐ 主题</button>
+        <a class="ghost" href="#mistakes">错题本</a>
+      </div>
+    </nav>
+    <div class="hero-inner" id="top">
+      <p class="eyebrow">PERSONAL INTERVIEW PLAYBOOK</p>
+      <h1>前端面试算法训练手册</h1>
+      <p class="lead">集中复盘 JavaScript 手写题、Promise、Event Loop、数据结构，以及每次练习暴露出的薄弱点。</p>
+      <div class="stats">
+        <article><strong id="totalCount">19</strong><span>已练习题</span></article>
+        <article><strong>6</strong><span>错题要点</span></article>
+        <article><strong>5</strong><span>训练模块</span></article>
+        <article><strong>持续更新</strong><span>训练状态</span></article>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="dashboard panel">
+      <div>
+        <p class="section-kicker">OVERVIEW</p>
+        <h2>当前能力画像</h2>
+      </div>
+      <div class="skill-grid">
+        <div class="skill"><span>JavaScript 基础</span><b>5 / 5</b><progress value="5" max="5"></progress></div>
+        <div class="skill"><span>Promise</span><b>4 / 5</b><progress value="4" max="5"></progress></div>
+        <div class="skill"><span>Event Loop</span><b>4.5 / 5</b><progress value="4.5" max="5"></progress></div>
+        <div class="skill"><span>数据结构</span><b>4 / 5</b><progress value="4" max="5"></progress></div>
+      </div>
+      <p class="note">当前最需要持续强化：Promise 空输入边界、复杂 async/await 推演、深拷贝特殊对象支持。</p>
+    </section>
+
+    <section class="library" id="library">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">EXERCISE LIBRARY</p>
+          <h2>题目与代码实现</h2>
+        </div>
+        <p>代码为训练过程中的最终通过版或整理后的参考版。</p>
+      </div>
+
+      <div class="toolbar panel">
+        <label class="search">
+          <span>搜索</span>
+          <input id="searchInput" type="search" placeholder="题目、分类、知识点……">
+        </label>
+        <div id="filters" class="filters"></div>
+      </div>
+
+      <div id="exerciseList" class="exercise-list"></div>
+      <p id="emptyState" class="empty" hidden>没有找到匹配的题目。</p>
+    </section>
+
+    <section id="mistakes" class="mistakes">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">MISTAKE BOOK</p>
+          <h2>错题本</h2>
+        </div>
+        <p>面试前优先复习这些高频失分点。</p>
+      </div>
+      <div class="mistake-grid">
+        <article class="mistake-card"><span>Promise</span><h3>Promise.race([])</h3><p>不会 resolve 空数组，而是永久保持 pending。</p></article>
+        <article class="mistake-card"><span>Promise</span><h3>Promise.allSettled([])</h3><p>应立即 fulfilled，结果为 []。</p></article>
+        <article class="mistake-card"><span>Promise</span><h3>Promise.any([])</h3><p>应立即 rejected，错误为包含空 errors 的 AggregateError。</p></article>
+        <article class="mistake-card"><span>this</span><h3>debounce 的返回函数</h3><p>使用箭头函数会捕获外层 this；应返回普通函数取得调用时 this。</p></article>
+        <article class="mistake-card"><span>Event Loop</span><h3>while(true) + setTimeout</h3><p>同步死循环会阻塞事件循环，并且会持续注册大量定时器。</p></article>
+        <article class="mistake-card"><span>async/await</span><h3>await 后续执行顺序</h3><p>await 后续是微任务；与其他 then 回调按实际入队顺序 FIFO 执行。</p></article>
+      </div>
+    </section>
+
+    <section class="roadmap panel">
+      <div>
+        <p class="section-kicker">NEXT STEPS</p>
+        <h2>下一阶段路线</h2>
+      </div>
+      <ol>
+        <li><b>前端高频手写：</b>Promise.retry、并发控制、Scheduler、compose、bind、new、instanceof。</li>
+        <li><b>基础算法：</b>双指针、滑动窗口、二分查找、DFS、BFS、回溯。</li>
+        <li><b>数据结构：</b>链表、二叉树、堆、Trie、哈希表与双向链表版 LRU。</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer>
+    <p>Frontend Algorithm Training Handbook · 个人学习记录</p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
