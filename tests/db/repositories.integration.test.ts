@@ -2,7 +2,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { drizzle } from 'drizzle-orm/pglite'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { count } from 'drizzle-orm'
+import { count, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import * as schema from '@/db/schema'
@@ -75,6 +75,44 @@ describe('PostgreSQL repositories', () => {
     expect(active.status).toBe('active')
     expect(complete.status).toBe('completed')
     await expect(plans.findActive(userId)).resolves.toBeNull()
+  })
+
+  it('rejects a passing submission owned by another user', async () => {
+    const plans = createPlanRepository(db)
+    const ownerId = '00000000-0000-4000-8000-000000000004'
+    const attackerId = '00000000-0000-4000-8000-000000000005'
+    const plan = await plans.create({ userId: ownerId, localDate: '2026-07-15', exerciseIds: ['a', 'b'] })
+    const [submission] = await db.insert(schema.submissions).values({
+      userId: attackerId,
+      exerciseId: 'a',
+      code: 'stolen pass',
+      status: 'passed',
+      testResult: { passed: 1, failed: 0 },
+    }).returning()
+
+    await expect(plans.markItemComplete(plan.id, 'a', submission.id)).rejects.toThrow('PASSING_SUBMISSION_REQUIRED')
+    await expect(plans.findActive(ownerId)).resolves.toMatchObject({
+      items: [expect.objectContaining({ exerciseId: 'a', status: 'pending' }), expect.objectContaining({ exerciseId: 'b', status: 'pending' })],
+    })
+  })
+
+  it('serializes simultaneous item completions and completes the plan', async () => {
+    const plans = createPlanRepository(db)
+    const userId = '00000000-0000-4000-8000-000000000006'
+    const plan = await plans.create({ userId, localDate: '2026-07-15', exerciseIds: ['a', 'b'] })
+    const inserted = await db.insert(schema.submissions).values([
+      { userId, exerciseId: 'a', code: 'a', status: 'passed', testResult: { passed: 1, failed: 0 } },
+      { userId, exerciseId: 'b', code: 'b', status: 'passed', testResult: { passed: 1, failed: 0 } },
+    ]).returning()
+
+    await Promise.all([
+      plans.markItemComplete(plan.id, 'a', inserted[0].id),
+      plans.markItemComplete(plan.id, 'b', inserted[1].id),
+    ])
+
+    await expect(plans.findActive(userId)).resolves.toBeNull()
+    const [completed] = await db.select().from(schema.dailyPlans).where(eq(schema.dailyPlans.id, plan.id))
+    expect(completed.status).toBe('completed')
   })
 
   it('persists and lists submission attempts newest first', async () => {

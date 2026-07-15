@@ -21,10 +21,11 @@ export interface DraftRepository {
 
 type Database<TQuery extends PgQueryResultHKT> = PgDatabase<TQuery, typeof schema>
 
-const isUniqueViolation = (error: unknown) => {
+const isConstraintViolation = (error: unknown, constraint: string): boolean => {
   if (!(error instanceof Error)) return false
-  const candidate = error as Error & { code?: string; cause?: { code?: string } }
-  return candidate.code === '23505' || candidate.cause?.code === '23505' || /unique constraint/i.test(error.message)
+  const candidate = error as Error & { code?: string; constraint?: string; cause?: unknown }
+  return (candidate.code === '23505' && (candidate.constraint === constraint || candidate.message.includes(constraint)))
+    || isConstraintViolation(candidate.cause, constraint)
 }
 
 export function createPlanRepository<TQuery extends PgQueryResultHKT>(db: Database<TQuery>): PlanRepository {
@@ -50,14 +51,16 @@ export function createPlanRepository<TQuery extends PgQueryResultHKT>(db: Databa
           return load(tx as Database<TQuery>, plan)
         })
       } catch (error) {
-        if (isUniqueViolation(error)) throw new Error('ACTIVE_PLAN_EXISTS', { cause: error })
+        if (isConstraintViolation(error, 'daily_plans_one_active_per_user')) throw new Error('ACTIVE_PLAN_EXISTS', { cause: error })
         throw error
       }
     },
 
     async markItemComplete(planId, exerciseId, submissionId) {
       return db.transaction(async (tx) => {
-        const [submission] = await tx.select().from(schema.submissions).where(and(eq(schema.submissions.id, submissionId), eq(schema.submissions.exerciseId, exerciseId), eq(schema.submissions.status, 'passed'))).limit(1)
+        const [lockedPlan] = await tx.select().from(schema.dailyPlans).where(eq(schema.dailyPlans.id, planId)).for('update').limit(1)
+        if (!lockedPlan) throw new Error('PLAN_NOT_FOUND')
+        const [submission] = await tx.select().from(schema.submissions).where(and(eq(schema.submissions.id, submissionId), eq(schema.submissions.userId, lockedPlan.userId), eq(schema.submissions.exerciseId, exerciseId), eq(schema.submissions.status, 'passed'))).limit(1)
         if (!submission) throw new Error('PASSING_SUBMISSION_REQUIRED')
         await tx.update(schema.planItems).set({ status: 'completed', submissionId, completedAt: new Date() }).where(and(eq(schema.planItems.planId, planId), eq(schema.planItems.exerciseId, exerciseId)))
         const [{ pending }] = await tx.select({ pending: sql<number>`count(*) filter (where ${schema.planItems.status} = 'pending')::int` }).from(schema.planItems).where(eq(schema.planItems.planId, planId))
@@ -83,7 +86,7 @@ export function createDraftRepository<TQuery extends PgQueryResultHKT>(db: Datab
           const [draft] = await db.insert(schema.drafts).values({ userId: input.userId, exerciseId: input.exerciseId, code: input.code, version: 1 }).returning()
           return draft
         } catch (error) {
-          if (isUniqueViolation(error)) throw new Error('DRAFT_CONFLICT', { cause: error })
+          if (isConstraintViolation(error, 'drafts_user_exercise')) throw new Error('DRAFT_CONFLICT', { cause: error })
           throw error
         }
       }

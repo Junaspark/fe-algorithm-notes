@@ -26,7 +26,7 @@ export async function seedExercises<TQuery extends PgQueryResultHKT>(db: PgDatab
 async function main() {
   const { db, sqlClient } = await import('@/db/client')
   try {
-    console.log(`${await seedExercises(db)} exercises inserted`)
+    console.log(`${await seedExercises(db)} exercises upserted`)
   } finally {
     await sqlClient.end()
   }
