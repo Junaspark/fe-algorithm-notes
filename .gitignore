@@ -17,4 +17,5 @@ Thumbs.db
 .superpowers/
 .worktrees/
 .next/
+*.tsbuildinfo
 node_modules/
