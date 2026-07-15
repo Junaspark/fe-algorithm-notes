@@ -51,7 +51,7 @@ Observed: exit 2 before linting because the repository has no ESLint 9+ flat con
 
 ## Commit
 
-`14f3d53` (`feat: restrict access to Junaspark GitHub login`).
+Implementation commit: `855f94e` (`feat: restrict access to Junaspark GitHub login`).
 
 ## Concerns
 
