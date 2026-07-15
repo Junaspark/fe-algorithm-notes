@@ -133,3 +133,70 @@ git diff --check
 ```
 
 Output: exit 0 (run after this report update and generated test-result cleanup).
+
+---
+
+## Final review follow-up: prototype-sensitive keys and Worker construction
+
+### Root cause and fix
+
+- `normalizeJsonValue` previously accumulated object properties into `{}`. Assigning the valid JSON key `__proto__` invoked `Object.prototype.__proto__` instead of creating an own data property, mutating the prototype and dropping the key from equality and structured-clone delivery. JSON records now use `Object.create(null)`, preserving `__proto__`, `constructor`, and `prototype` as own enumerable data throughout normalization, equality, and delivery.
+- `workerFactory()` ran outside all error handling. A synchronous browser `new Worker(...)` failure therefore rejected the caller by throwing rather than returning protocol-shaped evidence. Construction is now guarded and returns the same correlated, clone-safe error `RunResult` used for transport failures.
+
+### RED evidence
+
+```text
+pnpm vitest run tests/workers/runner-protocol.test.ts tests/workers/runner.test.ts
+```
+
+Output: `Test Files 2 failed (2)`, `Tests 3 failed | 16 passed (19)`, exit 1. The direct normalization test lost `__proto__`, the real worker equality test returned `failed`, and the throwing factory escaped as `SecurityError: Worker construction blocked`.
+
+### GREEN and final evidence
+
+```text
+pnpm vitest run tests/workers/runner-protocol.test.ts tests/workers/runner.test.ts
+```
+
+Output: `Test Files 2 passed (2)`, `Tests 19 passed (19)`, exit 0.
+
+```text
+pnpm vitest run tests/workers tests/submissions
+```
+
+Output: `Test Files 3 passed (3)`, `Tests 21 passed (21)`, exit 0.
+
+```text
+pnpm exec playwright test e2e/runner-browser.spec.ts
+```
+
+Output: `3 passed (1.7s)`, exit 0.
+
+```text
+pnpm test
+```
+
+Output: `Test Files 16 passed (16)`, `Tests 66 passed (66)`, exit 0.
+
+```text
+pnpm lint
+```
+
+Output: ESLint exit 0.
+
+```text
+pnpm exec tsc --noEmit
+```
+
+Output: TypeScript exit 0.
+
+```text
+env AUTH_SECRET=build-placeholder AUTH_GITHUB_ID=build-placeholder AUTH_GITHUB_SECRET=build-placeholder DATABASE_URL=postgresql://user:password@127.0.0.1:5432/build pnpm build
+```
+
+Output: compiled successfully, TypeScript finished, generated static pages `7/7`, exit 0.
+
+```text
+git diff --check
+```
+
+Output: exit 0 after report update and generated Playwright result cleanup.

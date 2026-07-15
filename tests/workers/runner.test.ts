@@ -215,4 +215,28 @@ describe('browser worker runner', () => {
     expect(result.tests[0]).toMatchObject({ name: 'adds', status: 'error' })
     expect(result.tests[0].error).toContain('could not be cloned')
   })
+
+  it('compares and delivers objects with prototype-sensitive JSON keys', async () => {
+    setRunnerWorkerFactory(() => new WorkerHarness())
+    const special = JSON.parse('{"__proto__":{"polluted":true},"constructor":"ctor","prototype":"proto"}')
+    const result = await runTests(request({
+      code: `function add() { return JSON.parse('{"__proto__":{"polluted":true},"constructor":"ctor","prototype":"proto"}') }`,
+      tests: [{ name: 'special keys', args: [], expected: special }],
+    }), 1_000)
+
+    expect(result.tests[0]).toMatchObject({ status: 'passed', expected: special, actual: special })
+    expect(Object.keys(result.tests[0].actual as object)).toEqual(['__proto__', 'constructor', 'prototype'])
+  })
+
+  it('returns a correlated clone-safe error when Worker construction throws', async () => {
+    setRunnerWorkerFactory(() => { throw new DOMException('Worker construction blocked', 'SecurityError') })
+
+    const result = await runTests(request(), 1_000)
+
+    expect(result).toMatchObject({
+      requestId: 'run-1',
+      tests: [{ name: 'adds', status: 'error', error: 'Worker construction blocked' }],
+      logs: [],
+    })
+  })
 })

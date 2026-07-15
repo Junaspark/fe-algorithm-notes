@@ -57,7 +57,12 @@ export function runTests(request: RunRequest, timeoutMs: number): Promise<RunRes
   } catch (error) {
     return Promise.resolve(errorResult(request, startedAt, error))
   }
-  const worker = workerFactory()
+  let worker: RunnerWorker
+  try {
+    worker = workerFactory()
+  } catch (error) {
+    return Promise.resolve(errorResult(request, startedAt, error))
+  }
 
   return new Promise(resolve => {
     let settled = false

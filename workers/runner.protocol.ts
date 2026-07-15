@@ -58,7 +58,7 @@ export function normalizeJsonValue(value: unknown, path = '$', ancestors = new W
     if (prototype !== Object.prototype && prototype !== null) {
       throw new Error(`Unsupported JSON value at ${path}: non-plain object`)
     }
-    const normalized: { [key: string]: JsonValue } = {}
+    const normalized = Object.create(null) as { [key: string]: JsonValue }
     for (const key of Object.keys(value)) {
       normalized[key] = normalizeJsonValue((value as Record<string, unknown>)[key], `${path}.${key}`, ancestors)
     }
