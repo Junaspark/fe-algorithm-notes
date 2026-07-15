@@ -56,3 +56,80 @@ The first bare `pnpm build` compiled and type checked, then stopped during exist
 
 - Worker isolation protects page responsiveness and blocks the specified ambient APIs, but it is deliberately not a security boundary. Any future authoritative acceptance must continue to treat client evidence as untrusted.
 - The package declares `pnpm@10` rather than an exact pnpm version, so Corepack prints an existing warning on pnpm commands. It does not affect command exit status and is outside Task 5 scope.
+
+---
+
+## Review follow-up: isolation, correlation, and clone safety
+
+### Findings fixed
+
+- Replaced parameter-only API blocking with a frozen restricted facade supplied as `globalThis` and `self`; it also shadows `postMessage`, `Function`, `Worker`, `SharedWorker`, `EventSource`, `BroadcastChannel`, `navigator.sendBeacon`, and the originally required network/storage APIs.
+- Added typed `runner:execute` and `runner:result` envelopes. The client ignores malformed, uncorrelated, and invalid-result messages and completes only for a schema-valid envelope whose outer and inner request IDs exactly match the active request.
+- Constrained args, expected values, and actual values to recursive JSON-like `JsonValue`. Runtime normalization rejects functions, symbols, non-finite numbers, cyclic/non-plain objects, and throwing proxies with clone-safe test errors.
+- Catches request-side/transport `DataCloneError`; worker delivery has a final clone-safe fallback. Console capture converts functions, symbols, undefined values, and throwing proxies to bounded strings.
+- Added a Vite-bundled Playwright Chromium smoke using the real module Worker plus correlation/error cases.
+- Explicit limitation: this remains UX isolation. Learner JavaScript can recover the intrinsic `Function` constructor through constructor chains even though direct `Function` is shadowed. It is not a security or server trust boundary.
+
+### Follow-up RED evidence
+
+Command:
+
+```text
+pnpm vitest run tests/workers/runner.test.ts
+```
+
+Output: `15 tests | 8 failed`; failures reproduced root-global bypass, forged `postMessage`, acceptance of malformed/uncorrelated messages, non-cloneable result delivery, unsafe log formatting, and uncaught request-side `DataCloneError`. Exit 1.
+
+Focused schema-hardening RED:
+
+```text
+pnpm vitest run tests/workers/runner.test.ts -t "ignores malformed"
+```
+
+Output: `1 failed | 15 skipped`; a correlated envelope containing a function-valued `actual` was incorrectly accepted. Exit 1.
+
+### Follow-up GREEN and final verification
+
+```text
+pnpm vitest run tests/workers tests/submissions
+```
+
+Output: `Test Files 2 passed (2)`, `Tests 18 passed (18)`, exit 0.
+
+```text
+pnpm exec playwright test e2e/runner-browser.spec.ts
+```
+
+Output: `3 passed (1.8s)`, exit 0. The cases cover bundled client/real module Worker loading, `globalThis.fetch` and `self.fetch` attempts, forged learner `postMessage`, ignored uncorrelated/malformed messages, and active-request worker-error correlation.
+
+The first browser attempt could not bind the local Vite port inside the sandbox (`listen EPERM`); the approved outside-sandbox run then identified the missing matching Chromium binary. `pnpm exec playwright install chromium` installed Playwright Chromium/FFmpeg/headless-shell successfully, after which the browser suite passed.
+
+```text
+pnpm test
+```
+
+Output: `Test Files 15 passed (15)`, `Tests 63 passed (63)`, exit 0. `e2e/**` is explicitly excluded from Vitest discovery and remains owned by Playwright. An earlier discovery run correctly exposed that missing exclusion; it also hit an unrelated equal-timestamp ordering race in one PGlite repository test. The fresh final run passed all 63 tests.
+
+```text
+pnpm lint
+```
+
+Output: ESLint exit 0.
+
+```text
+pnpm exec tsc --noEmit
+```
+
+Output: TypeScript exit 0.
+
+```text
+env AUTH_SECRET=build-placeholder AUTH_GITHUB_ID=build-placeholder AUTH_GITHUB_SECRET=build-placeholder DATABASE_URL=postgresql://user:password@127.0.0.1:5432/build pnpm build
+```
+
+Output: compiled successfully, TypeScript finished, generated static pages `7/7`, exit 0.
+
+```text
+git diff --check
+```
+
+Output: exit 0 (run after this report update and generated test-result cleanup).
