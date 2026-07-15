@@ -1,17 +1,32 @@
-import { isAuthorizedCronRequest } from '../auth'
+import type { NotificationMessage } from '@/adapters/notifications/port'
 import type { PlanCheckResult } from '@/domain/plans/service'
+import { isAuthorizedCronRequest } from '../auth'
 
-type EveningService = { runEveningCheck(now: Date): Promise<PlanCheckResult> }
+type EveningRuntime = {
+  runEveningCheck(now: Date): Promise<PlanCheckResult>
+  takeReminder(): NotificationMessage | null
+}
 
-export function createEveningHandler(dependencies: { secret: string } & EveningService) {
+type EveningRouteDependencies = {
+  getSecret(): string
+  createRuntime(): Promise<EveningRuntime>
+}
+
+const defaults: EveningRouteDependencies = {
+  getSecret: () => process.env.CRON_SECRET ?? '',
+  async createRuntime() {
+    const { createEveningRuntime } = await import('@/domain/plans/runtime')
+    return createEveningRuntime()
+  },
+}
+
+export function createEveningRoute(dependencies: EveningRouteDependencies = defaults) {
   return async function handler(request: Request): Promise<Response> {
-    if (!isAuthorizedCronRequest(request, dependencies.secret)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    const { planId, created, remainingCount } = await dependencies.runEveningCheck(new Date())
-    return Response.json({ planId, created, remainingCount })
+    if (!isAuthorizedCronRequest(request, dependencies.getSecret())) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const runtime = await dependencies.createRuntime()
+    const { planId, created, remainingCount } = await runtime.runEveningCheck(new Date())
+    return Response.json({ planId, created, remainingCount, reminder: runtime.takeReminder() })
   }
 }
 
-export async function GET(request: Request): Promise<Response> {
-  const { createEveningRuntime } = await import('@/domain/plans/runtime')
-  return createEveningHandler({ secret: process.env.CRON_SECRET ?? '', ...await createEveningRuntime() })(request)
-}
+export const GET = createEveningRoute()

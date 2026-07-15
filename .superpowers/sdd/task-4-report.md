@@ -42,3 +42,24 @@ This report is included in the Task commit: `feat: schedule persistent daily pra
 - `pnpm` emits the existing warning that `packageManager: "pnpm@10"` is not an exact version.
 - The production runtime uses the recording notification adapter until a delivery provider is selected; the service boundary is provider-neutral and ready for replacement.
 - A build without required application environment variables fails in pre-existing auth/database initialization. The verified build used non-secret dummy build-time values and made no database connection.
+
+## Review Fixes
+
+- Refactored both exported cron routes around lazy runtime factories. Bearer authentication and fail-closed `CRON_SECRET` validation now happen before runtime import, database initialization, or `OWNER_USER_ID` access.
+- Replaced the production module-global recording adapter with a request-scoped, bounded `NotificationOutboxAdapter`. Authorized JSON responses expose the structured `reminder` command for the Codex scheduled-task caller to deliver through Push/email; `null` explicitly means no reminder is due.
+- Added `docs/cron-reminder-contract.md` describing payload semantics, outbox bounds, authentication ordering, caller responsibility, and UTC schedules.
+- Added route-factory tests proving missing/wrong bearer credentials never call either runtime factory, an environment-wiring test for `CRON_SECRET`, response payload tests, a repeated-morning no-duplicate test, bounded outbox tests, and suite-level fake-timer cleanup.
+
+### Review RED
+
+- `pnpm vitest run tests/plans tests/reminders tests/api/cron.test.ts` -> exit 1: missing outbox module and missing lazy route creators (1 failed suite, 8 failed route tests).
+
+### Review GREEN and verification
+
+- `pnpm vitest run tests/plans tests/reminders tests/api/cron.test.ts` -> exit 0, 4 files and 18 tests passed.
+- `pnpm test` -> exit 0, 13 files and 45 tests passed.
+- `pnpm exec tsc --noEmit` -> exit 0.
+- `pnpm lint` -> exit 0, no warnings/errors.
+- `DATABASE_URL=postgres://user:pass@127.0.0.1:5432/db AUTH_SECRET=build-secret AUTH_GITHUB_ID=build-id AUTH_GITHUB_SECRET=build-github-secret pnpm build` -> exit 0; both cron routes emitted as dynamic routes.
+- `git diff --check` -> exit 0.
+- Review-fix commit subject: `fix: make cron reminder delivery request scoped` (hash reported to the orchestrator after creation).

@@ -45,6 +45,21 @@ describe('daily plan service', () => {
     expect(result.created).toBe(true)
   })
 
+  it('reuses the active plan on a repeated morning call without creating a duplicate', async () => {
+    const { plans, selector, service } = setup()
+    let stored: DailyPlan | null = null
+    plans.findActive.mockImplementation(async () => stored)
+    selector.select.mockResolvedValue([algorithmExercise, frontendExercise])
+    plans.create.mockImplementation(async () => {
+      stored = activePlan
+      return activePlan
+    })
+    await expect(service.runMorningCheck(new Date('2026-07-16T01:30:00Z'))).resolves.toMatchObject({ created: true })
+    await expect(service.runMorningCheck(new Date('2026-07-17T01:30:00Z'))).resolves.toMatchObject({ created: false, planId: activePlan.id })
+    expect(plans.create).toHaveBeenCalledOnce()
+    expect(selector.select).toHaveBeenCalledOnce()
+  })
+
   it('rejects selector output without exact algorithm/frontend composition', async () => {
     const { plans, selector, service } = setup()
     plans.findActive.mockResolvedValue(null)

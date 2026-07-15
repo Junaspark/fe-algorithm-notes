@@ -1,4 +1,4 @@
-import { RecordingNotificationAdapter } from '@/adapters/notifications/recording'
+import { NotificationOutboxAdapter } from '@/adapters/notifications/outbox'
 import { db, sqlClient } from '@/db/client'
 import { createReminderService } from '@/domain/reminders/service'
 import { createPlanRepository } from './repository'
@@ -7,7 +7,6 @@ import { createPlanService } from './service'
 import type { ExerciseKind } from '@/domain/exercises/schema'
 
 const plans = createPlanRepository(db)
-const notifications = new RecordingNotificationAdapter()
 
 const one = async (query: PromiseLike<readonly Record<string, unknown>[]>): Promise<SelectedExercise | null> => {
   const [row] = await query
@@ -35,9 +34,11 @@ const ownerId = () => {
 }
 
 export async function createMorningRuntime() {
-  return createPlanService({ userId: ownerId(), plans, selector, notifications })
+  const outbox = new NotificationOutboxAdapter()
+  return { ...createPlanService({ userId: ownerId(), plans, selector, notifications: outbox }), takeReminder: () => outbox.take() }
 }
 
 export async function createEveningRuntime() {
-  return createReminderService({ userId: ownerId(), plans, notifications })
+  const outbox = new NotificationOutboxAdapter()
+  return { ...createReminderService({ userId: ownerId(), plans, notifications: outbox }), takeReminder: () => outbox.take() }
 }

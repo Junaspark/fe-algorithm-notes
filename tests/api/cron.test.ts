@@ -1,42 +1,62 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createMorningHandler } from '@/app/api/cron/morning/route'
-import { createEveningHandler } from '@/app/api/cron/evening/route'
+import { createMorningRoute } from '@/app/api/cron/morning/route'
+import { createEveningRoute } from '@/app/api/cron/evening/route'
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllEnvs()
+})
 
 describe('cron handlers', () => {
   it('fails closed when the cron secret is not configured', async () => {
     const runMorningCheck = vi.fn()
     const request = { headers: { get: () => 'Bearer ' } } as unknown as Request
-    const response = await createMorningHandler({ secret: '', runMorningCheck })(request)
+    const response = await createMorningRoute({ getSecret: () => '', createRuntime: vi.fn().mockResolvedValue({ runMorningCheck, takeReminder: vi.fn() }) })(request)
     expect(response.status).toBe(401)
     expect(runMorningCheck).not.toHaveBeenCalled()
   })
 
   it.each([undefined, '', 'Bearer wrong'])('returns 401 for a missing or wrong token', async (authorization) => {
-    const runMorningCheck = vi.fn()
-    const handler = createMorningHandler({ secret: 'correct', runMorningCheck })
+    const createRuntime = vi.fn()
+    const handler = createMorningRoute({ getSecret: () => 'correct', createRuntime })
     const headers = new Headers()
     if (authorization !== undefined) headers.set('authorization', authorization)
     expect((await handler(new Request('http://localhost/api/cron/morning', { headers }))).status).toBe(401)
-    expect(runMorningCheck).not.toHaveBeenCalled()
+    expect(createRuntime).not.toHaveBeenCalled()
+  })
+
+  it('reads CRON_SECRET lazily from route environment wiring', async () => {
+    vi.stubEnv('CRON_SECRET', 'from-env')
+    const runMorningCheck = vi.fn().mockResolvedValue({ planId: 'plan-1', created: true, remainingCount: 2 })
+    const route = createMorningRoute({ getSecret: () => process.env.CRON_SECRET ?? '', createRuntime: vi.fn().mockResolvedValue({ runMorningCheck, takeReminder: () => null }) })
+    expect((await route(new Request('http://localhost', { headers: { authorization: 'Bearer wrong' } }))).status).toBe(401)
+    expect((await route(new Request('http://localhost', { headers: { authorization: 'Bearer from-env' } }))).status).toBe(200)
   })
 
   it('runs morning once at the frozen 09:30 Shanghai instant', async () => {
     vi.useFakeTimers().setSystemTime(new Date('2026-07-16T01:30:00Z'))
     const runMorningCheck = vi.fn().mockResolvedValue({ planId: 'plan-1', created: true, remainingCount: 2 })
-    const response = await createMorningHandler({ secret: 'correct', runMorningCheck })(new Request('http://localhost', { headers: { authorization: 'Bearer correct' } }))
+    const reminder = { kind: 'morning', userId: 'user-1', planId: 'plan-1', remainingCount: 2, exerciseIds: ['alg', 'fe'] }
+    const response = await createMorningRoute({ getSecret: () => 'correct', createRuntime: vi.fn().mockResolvedValue({ runMorningCheck, takeReminder: () => reminder }) })(new Request('http://localhost', { headers: { authorization: 'Bearer correct' } }))
     expect(runMorningCheck).toHaveBeenCalledOnce()
     expect(runMorningCheck).toHaveBeenCalledWith(new Date('2026-07-16T01:30:00Z'))
-    expect(await response.json()).toEqual({ planId: 'plan-1', created: true, remainingCount: 2 })
-    vi.useRealTimers()
+    expect(await response.json()).toEqual({ planId: 'plan-1', created: true, remainingCount: 2, reminder })
   })
 
   it('runs evening once at the frozen 20:00 Shanghai instant', async () => {
     vi.useFakeTimers().setSystemTime(new Date('2026-07-16T12:00:00Z'))
     const runEveningCheck = vi.fn().mockResolvedValue({ planId: 'plan-1', created: false, remainingCount: 1 })
-    const response = await createEveningHandler({ secret: 'correct', runEveningCheck })(new Request('http://localhost', { headers: { authorization: 'Bearer correct' } }))
+    const reminder = { kind: 'evening', userId: 'user-1', planId: 'plan-1', remainingCount: 1, exerciseIds: ['alg'] }
+    const response = await createEveningRoute({ getSecret: () => 'correct', createRuntime: vi.fn().mockResolvedValue({ runEveningCheck, takeReminder: () => reminder }) })(new Request('http://localhost', { headers: { authorization: 'Bearer correct' } }))
     expect(runEveningCheck).toHaveBeenCalledOnce()
-    expect(await response.json()).toEqual({ planId: 'plan-1', created: false, remainingCount: 1 })
-    vi.useRealTimers()
+    expect(await response.json()).toEqual({ planId: 'plan-1', created: false, remainingCount: 1, reminder })
+  })
+
+  it('does not initialize evening runtime before authorization', async () => {
+    const createRuntime = vi.fn()
+    const response = await createEveningRoute({ getSecret: () => 'correct', createRuntime })(new Request('http://localhost'))
+    expect(response.status).toBe(401)
+    expect(createRuntime).not.toHaveBeenCalled()
   })
 })
