@@ -1,0 +1,38 @@
+{
+  "id": "promise-race",
+  "title": "Promise.race",
+  "kind": "frontend",
+  "difficulty": "easy",
+  "language": "javascript",
+  "topics": [
+    "Promise"
+  ],
+  "prompt": "第一个 settled 的成员决定最终 Promise 的状态和值。",
+  "starterCode": "function promiseRace(iterable) {\n  return new Promise((resolve, reject) => {\n    for (const item of iterable) {\n      Promise.resolve(item).then(resolve, reject)\n    }\n  })\n}",
+  "publicTests": [
+    {
+      "name": "loads the legacy implementation",
+      "args": [],
+      "expected": null,
+      "timeoutMs": 1000
+    }
+  ],
+  "hiddenTests": [],
+  "legacy": {
+    "id": 8,
+    "title": "Promise.race",
+    "category": "Promise",
+    "status": "修正后通过",
+    "difficulty": "简单",
+    "summary": "第一个 settled 的成员决定最终 Promise 的状态和值。",
+    "code": "function promiseRace(iterable) {\n  return new Promise((resolve, reject) => {\n    for (const item of iterable) {\n      Promise.resolve(item).then(resolve, reject)\n    }\n  })\n}",
+    "complexity": "遍历时间 O(n)，额外空间 O(1)",
+    "mistakes": [
+      "Promise.race([]) 会永久保持 pending，而不是 resolve([])。"
+    ],
+    "questions": [
+      "race 与 any 的核心区别是什么？",
+      "为什么不需要完成计数？"
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "event-emitter",
+  "title": "EventEmitter",
+  "kind": "frontend",
+  "difficulty": "medium",
+  "language": "javascript",
+  "topics": [
+    "设计模式"
+  ],
+  "prompt": "实现 on、emit、off，使用 Map 保存事件名与处理函数列表。",
+  "starterCode": "class EventEmitter {\n  constructor() {\n    this.events = new Map()\n  }\n\n  on(type, fn) {\n    const handlers = this.events.get(type) || []\n    handlers.push(fn)\n    this.events.set(type, handlers)\n    return this\n  }\n\n  emit(type, ...args) {\n    const handlers = this.events.get(type) || []\n    ;[...handlers].forEach(fn => fn(...args))\n    return this\n  }\n\n  off(type, fn) {\n    const handlers = this.events.get(type)\n    if (!handlers) return this\n\n    this.events.set(\n      type,\n      handlers.filter(handler => handler !== fn)\n    )\n    return this\n  }\n}",
+  "publicTests": [
+    {
+      "name": "loads the legacy implementation",
+      "args": [],
+      "expected": null,
+      "timeoutMs": 1000
+    }
+  ],
+  "hiddenTests": [],
+  "legacy": {
+    "id": 6,
+    "title": "EventEmitter",
+    "category": "设计模式",
+    "status": "已通过",
+    "difficulty": "中等",
+    "summary": "实现 on、emit、off，使用 Map 保存事件名与处理函数列表。",
+    "code": "class EventEmitter {\n  constructor() {\n    this.events = new Map()\n  }\n\n  on(type, fn) {\n    const handlers = this.events.get(type) || []\n    handlers.push(fn)\n    this.events.set(type, handlers)\n    return this\n  }\n\n  emit(type, ...args) {\n    const handlers = this.events.get(type) || []\n    ;[...handlers].forEach(fn => fn(...args))\n    return this\n  }\n\n  off(type, fn) {\n    const handlers = this.events.get(type)\n    if (!handlers) return this\n\n    this.events.set(\n      type,\n      handlers.filter(handler => handler !== fn)\n    )\n    return this\n  }\n}",
+    "complexity": "on O(1)，emit O(n)，off O(n)",
+    "mistakes": [
+      "emit 时复制数组可避免回调过程中增删监听器影响当前遍历。"
+    ],
+    "questions": [
+      "如何实现 once？",
+      "off 不传 fn 时是否清空该事件？"
+    ]
+  }
+}

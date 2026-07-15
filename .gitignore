@@ -16,3 +16,5 @@ Thumbs.db
 # Local brainstorming artifacts
 .superpowers/
 .worktrees/
+.next/
+node_modules/

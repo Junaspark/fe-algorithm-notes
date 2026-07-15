@@ -1,0 +1,38 @@
+{
+  "id": "event-loop-01",
+  "title": "Event Loop 01：Promise.then vs setTimeout",
+  "kind": "frontend",
+  "difficulty": "medium",
+  "language": "javascript",
+  "topics": [
+    "Event Loop"
+  ],
+  "prompt": "同步代码先执行；then 是微任务；setTimeout 是后续宏任务。",
+  "starterCode": "console.log(1)\n\nsetTimeout(() => {\n  console.log(2)\n}, 0)\n\nPromise.resolve().then(() => {\n  console.log(3)\n})\n\nconsole.log(4)",
+  "publicTests": [
+    {
+      "name": "matches the documented output",
+      "args": [],
+      "expected": "1 → 4 → 3 → 2",
+      "timeoutMs": 1000
+    }
+  ],
+  "hiddenTests": [],
+  "legacy": {
+    "id": 13,
+    "title": "Event Loop 01：Promise.then vs setTimeout",
+    "category": "Event Loop",
+    "status": "已通过",
+    "difficulty": "中等",
+    "summary": "同步代码先执行；then 是微任务；setTimeout 是后续宏任务。",
+    "code": "console.log(1)\n\nsetTimeout(() => {\n  console.log(2)\n}, 0)\n\nPromise.resolve().then(() => {\n  console.log(3)\n})\n\nconsole.log(4)",
+    "complexity": "考察执行顺序，不涉及传统算法复杂度",
+    "mistakes": [
+      "正确输出：1 → 4 → 3 → 2"
+    ],
+    "questions": [
+      "请按同步任务、微任务、宏任务列出入队过程。"
+    ],
+    "answer": "1 → 4 → 3 → 2"
+  }
+}
