@@ -7,6 +7,65 @@ import { accounts, authenticators, sessions, users, verificationTokens } from '@
 import { authorizeGitHubUser, normalizeGitHubLogin } from '@/domain/auth/authorize-github-user'
 import { env } from '@/env'
 
+type RawGitHubIdentity = Pick<GitHubProfile, 'id' | 'login' | 'name' | 'email' | 'avatar_url'>
+
+type DatabaseSession = {
+  user: {
+    id?: string
+    githubLogin?: string
+    name?: string | null
+    email?: string | null
+    image?: string | null
+  }
+  expires: string
+}
+
+type PersistedAuthUser = {
+  id: string
+  githubLogin?: string | null
+}
+
+export function mapGitHubProfile(profile: RawGitHubIdentity) {
+  return {
+    id: String(profile.id),
+    name: profile.name ?? profile.login,
+    email: profile.email,
+    image: profile.avatar_url,
+    githubLogin: normalizeGitHubLogin(profile.login) ?? '',
+  }
+}
+
+export function authorizeGitHubSignIn({ profile }: { profile?: Record<string, unknown> | null; [key: string]: unknown }): boolean {
+  return authorizeGitHubUser({ login: typeof profile?.login === 'string' ? profile.login : null })
+}
+
+export function populateDatabaseSession({
+  session,
+  user,
+}: {
+  session: DatabaseSession
+  user?: PersistedAuthUser
+}): DatabaseSession & { user: DatabaseSession['user'] & { id: string; githubLogin: string } } {
+  if (!user || !authorizeGitHubUser({ login: user.githubLogin })) {
+    throw new Error('Unauthorized persisted GitHub login')
+  }
+
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      id: user.id,
+      githubLogin: normalizeGitHubLogin(user.githubLogin)!,
+    },
+  }
+}
+
+const githubProvider = GitHub({
+  clientId: env.AUTH_GITHUB_ID,
+  clientSecret: env.AUTH_GITHUB_SECRET,
+})
+githubProvider.profile = mapGitHubProfile
+
 export const authConfig = {
   secret: env.AUTH_SECRET,
   adapter: DrizzleAdapter(db, {
@@ -17,35 +76,15 @@ export const authConfig = {
     authenticatorsTable: authenticators,
   }),
   session: { strategy: 'database' },
-  providers: [
-    GitHub({
-      clientId: env.AUTH_GITHUB_ID,
-      clientSecret: env.AUTH_GITHUB_SECRET,
-      profile(profile: GitHubProfile) {
-        return {
-          id: String(profile.id),
-          name: profile.name ?? profile.login,
-          email: profile.email,
-          image: profile.avatar_url,
-          githubLogin: normalizeGitHubLogin(profile.login) ?? '',
-        }
-      },
-    }),
-  ],
+  providers: [githubProvider],
   callbacks: {
-    signIn({ profile }) {
-      return authorizeGitHubUser({ login: typeof profile?.login === 'string' ? profile.login : null })
-    },
+    signIn: authorizeGitHubSignIn,
     jwt({ token, profile, user }) {
       const profileLogin = typeof profile?.login === 'string' ? profile.login : null
       token.githubLogin = normalizeGitHubLogin(profileLogin) ?? user?.githubLogin ?? token.githubLogin
       return token
     },
-    session({ session, user }) {
-      session.user.id = user.id
-      session.user.githubLogin = normalizeGitHubLogin(user.githubLogin) ?? ''
-      return session
-    },
+    session: populateDatabaseSession,
   },
 } satisfies NextAuthConfig
 
