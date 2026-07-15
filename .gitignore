@@ -12,3 +12,6 @@ Thumbs.db
 # Secrets
 .env
 .env.*
+
+# Local brainstorming artifacts
+.superpowers/
