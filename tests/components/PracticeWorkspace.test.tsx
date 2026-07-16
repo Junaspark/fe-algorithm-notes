@@ -15,8 +15,8 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks() })
 describe('PracticeWorkspace', () => {
   it('renders the desktop problem and editor regions together plus accessible mobile tabs', () => {
     render(<PracticeWorkspace exercise={exercise} userId="owner" initialDraft={{ code: exercise.starterCode, version: 0 }} />)
-    expect(screen.getByRole('region', { name: '题目' })).toBeVisible()
-    expect(screen.getByRole('region', { name: '代码编辑器' })).toBeVisible()
+    expect(screen.getByRole('tabpanel', { name: '题目' })).toBeVisible()
+    expect(screen.getByRole('tabpanel', { name: '代码' })).toBeVisible()
     expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['题目', '代码', '结果'])
   })
 
@@ -31,6 +31,25 @@ describe('PracticeWorkspace', () => {
     expect(fetch).toHaveBeenCalledOnce()
     expect(screen.getByText('草稿版本冲突')).toBeVisible()
     expect(screen.getByRole('button', { name: '保留本地代码' })).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: '保留本地代码' }))
+    await act(async () => { await Promise.resolve(); await Promise.resolve() })
+    const retries = (fetch as ReturnType<typeof vi.fn>).mock.calls
+    expect(JSON.parse(retries.at(-1)?.[1]?.body as string)).toMatchObject({ code: 'changed', expectedVersion: 4 })
+  })
+
+  it('implements roving keyboard navigation for WAI-ARIA tabs', () => {
+    render(<PracticeWorkspace exercise={exercise} userId="owner" initialDraft={{ code: exercise.starterCode, version: 0 }} />)
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs.map(tab => tab.tabIndex)).toEqual([0, -1, -1])
+    fireEvent.keyDown(tabs[0], { key: 'ArrowLeft' })
+    expect(tabs[2]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs[2]).toHaveFocus()
+    fireEvent.keyDown(tabs[2], { key: 'Home' })
+    expect(tabs[0]).toHaveFocus()
+    fireEvent.keyDown(tabs[0], { key: 'End' })
+    expect(tabs[2]).toHaveFocus()
+    expect(tabs[2]).toHaveAttribute('aria-controls', 'results-panel')
+    expect(screen.getByRole('tabpanel', { name: '结果' })).toHaveAttribute('aria-labelledby', 'results-tab')
   })
 
   it('runs public tests and submits only a fresh full run', async () => {

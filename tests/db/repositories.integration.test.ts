@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import * as schema from '@/db/schema'
 import { createDraftRepository, createPlanRepository } from '@/domain/plans/repository'
 import { createSubmissionRepository } from '@/domain/submissions/repository'
+import { createPassingSubmissionPersistence } from '@/domain/submissions/service'
 import { seedExercises } from '@/scripts/seed'
 
 const exercise = (id: string, kind: 'algorithm' | 'frontend') => ({
@@ -32,6 +33,9 @@ describe('PostgreSQL repositories', () => {
     db = drizzle(client, { schema })
     const migration = await readFile(path.join(process.cwd(), 'drizzle/0000_silky_juggernaut.sql'), 'utf8')
     await client.exec(migration.replaceAll('--> statement-breakpoint', ''))
+    for (const name of ['0002_rich_raider.sql', '0003_submission_job_idempotency.sql']) {
+      await client.exec((await readFile(path.join(process.cwd(), 'drizzle', name), 'utf8')).replaceAll('--> statement-breakpoint', ''))
+    }
     await db.insert(schema.exercises).values([
       { id: 'a', kind: 'algorithm', version: 1, content: exercise('a', 'algorithm') },
       { id: 'b', kind: 'frontend', version: 1, content: exercise('b', 'frontend') },
@@ -135,5 +139,26 @@ describe('PostgreSQL repositories', () => {
     await expect(seedExercises(db)).resolves.toBe(19)
     const [result] = await db.select({ value: count() }).from(schema.exercises)
     expect(result.value).toBe(19)
+  })
+
+  it('persists exact active-plan submissions and creates one job of each type under replay', async () => {
+    const plans = createPlanRepository(db)
+    const persist = createPassingSubmissionPersistence(db)
+    const userId = '00000000-0000-4000-8000-000000000007'
+    await plans.create({ userId, localDate: '2026-07-15', exerciseIds: ['a', 'b'] })
+    const input = (exerciseId: string, requestId: string) => ({ userId, exerciseId, code: `function ${exerciseId}(){return true}`, complexityAnswer: 'O(1)', elapsedSeconds: 5, evidence: { scope: 'full' as const, requestId, tests: [{ name: 'works', status: 'passed' as const }] } })
+
+    await expect(persist({ ...input('a', 'bad-suite'), evidence: { ...input('a', 'bad-suite').evidence, tests: [{ name: 'invented', status: 'passed' }] } })).rejects.toThrow('FULL_TEST_EVIDENCE_MISMATCH')
+    await expect(persist({ ...input('a', 'wrong-owner'), userId: '00000000-0000-4000-8000-000000000008' })).rejects.toThrow('ACTIVE_PLAN_NOT_FOUND')
+    await expect(persist(input('a', 'run-a'))).resolves.toMatchObject({ planCompleted: false })
+    const completed = await persist(input('b', 'run-b'))
+    const replay = await persist(input('b', 'run-b'))
+
+    expect(replay.submissionId).toBe(completed.submissionId)
+    expect(replay.planCompleted).toBe(true)
+    expect((await db.select().from(schema.planItems)).every(item => item.status === 'completed')).toBe(true)
+    expect(await db.select().from(schema.gitSyncJobs)).toHaveLength(1)
+    expect(await db.select().from(schema.agentJobs)).toHaveLength(1)
+    expect((await db.select().from(schema.agentJobs))[0]).toMatchObject({ submissionId: completed.submissionId })
   })
 })

@@ -94,11 +94,12 @@ export const submissions = pgTable('submissions', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull(),
   exerciseId: text('exercise_id').notNull().references(() => exercises.id),
+  requestId: text('request_id'),
   code: text('code').notNull(),
   status: submissionStatus('status').notNull(),
   testResult: jsonb('test_result').$type<{ passed: number; failed: number }>().notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index('submissions_user_exercise').on(table.userId, table.exerciseId)])
+}, (table) => [index('submissions_user_exercise').on(table.userId, table.exerciseId), uniqueIndex('submissions_user_exercise_request_once').on(table.userId, table.exerciseId, table.requestId)])
 
 export const planItems = pgTable('plan_items', {
   planId: uuid('plan_id').notNull().references(() => dailyPlans.id, { onDelete: 'cascade' }),
@@ -133,13 +134,15 @@ export const reviews = pgTable('reviews', {
 export const agentJobs = pgTable('agent_jobs', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull(),
+  planId: uuid('plan_id').notNull().references(() => dailyPlans.id),
+  submissionId: uuid('submission_id').notNull().references(() => submissions.id),
   status: jobStatus('status').notNull().default('queued'),
   payloadVersion: integer('payload_version').notNull(),
   payload: jsonb('payload').$type<unknown>().notNull(),
   result: jsonb('result').$type<unknown>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (table) => [uniqueIndex('agent_jobs_submission_once').on(table.submissionId)])
 
 export const gitSyncJobs = pgTable('git_sync_jobs', {
   id: uuid('id').primaryKey().defaultRandom(),
