@@ -2,6 +2,12 @@ import { expect, test } from '@playwright/test'
 
 for (const viewport of [{ name: 'desktop', width: 1440, height: 900 }, { name: 'mobile', width: 390, height: 844 }]) {
   test(`${viewport.name} uses the real Worker, routes, editor, IndexedDB, and conflict recovery`, async ({ page, context }) => {
+    const cdnRequests: string[] = []
+    const monacoWorkerWarnings: string[] = []
+    const failedRequests: string[] = []
+    page.on('console', message => { if (message.text().includes('Could not create web worker')) monacoWorkerWarnings.push(message.text()) })
+    page.on('requestfailed', request => { failedRequests.push(`${request.url()} (${request.failure()?.errorText})`) })
+    await page.route(/(?:cdn\.jsdelivr\.net|unpkg\.com)/, route => { cdnRequests.push(route.request().url()); return route.abort('blockedbyclient') })
     await page.setViewportSize(viewport)
     await page.request.post('/tests/api/version', { data: { version: 1 } })
     await page.goto('/tests/browser/practice.html')
@@ -17,6 +23,7 @@ for (const viewport of [{ name: 'desktop', width: 1440, height: 900 }, { name: '
     await expect(page.getByText('1 / 1 通过')).toBeVisible()
     await page.getByRole('button', { name: '提交解答' }).press('Enter')
     await expect(page.getByText('已通过全部测试')).toBeVisible()
+    await expect(page.locator('button.format-button')).toHaveAttribute('data-worker-ready', 'true')
 
     await context.setOffline(true)
     await typeCode('function answer() { return 41 + 1 }')
@@ -31,7 +38,11 @@ for (const viewport of [{ name: 'desktop', width: 1440, height: 900 }, { name: '
     await expect(page.getByText('草稿版本冲突')).toBeAttached({ timeout: 4000 })
     if (viewport.name === 'mobile') await page.getByRole('tab', { name: '结果', exact: true }).press('Enter')
     await expect(page.getByText('草稿版本冲突')).toBeVisible()
-    await page.getByRole('button', { name: '保留本地代码' }).click()
+    const keepLocal = page.getByRole('button', { name: '保留本地代码' })
+    if (viewport.name === 'mobile') await keepLocal.press('Enter')
+    else await keepLocal.click()
     await expect.poll(async () => page.request.get('/tests/api/version').then(response => response.json())).toMatchObject({ version: 10, code: expect.stringContaining('6 * 7') })
+    expect(cdnRequests).toEqual([])
+    expect(monacoWorkerWarnings, failedRequests.join('\n')).toEqual([])
   })
 }

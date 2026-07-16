@@ -17,6 +17,7 @@
     "@monaco-editor/react": "latest",
     "@octokit/rest": "latest",
     "drizzle-orm": "latest",
+    "monaco-editor": "0.55.1",
     "next": "latest",
     "next-auth": "beta",
     "postgres": "latest",
@@ -38,6 +39,7 @@
     "jsdom": "latest",
     "tsx": "latest",
     "typescript": "latest",
+    "vite": "^8.1.4",
     "vitest": "latest"
   },
   "packageManager": "pnpm@10"

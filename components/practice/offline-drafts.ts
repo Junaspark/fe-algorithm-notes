@@ -34,9 +34,17 @@ export async function flushDraftOperations(drafts: QueuedDraft[], send: (draft: 
   for (const draft of drafts) if ((await send(draft)).kind === 'saved') await remove(draft)
 }
 
-export async function flushDraftQueue(send: (draft: QueuedDraft) => Promise<DraftSendResult>) {
+let activeFlush: Promise<void> | null = null
+
+async function performDraftFlush(send: (draft: QueuedDraft) => Promise<DraftSendResult>) {
   const database = await openQueue(); const read = database.transaction(STORE).objectStore(STORE).getAll()
   const drafts = await new Promise<QueuedDraft[]>((resolve, reject) => { read.onsuccess = () => resolve(read.result); read.onerror = () => reject(read.error) })
   database.close()
   await flushDraftOperations(drafts, send, removeQueuedDraft)
+}
+
+export function flushDraftQueue(send: (draft: QueuedDraft) => Promise<DraftSendResult>) {
+  if (activeFlush) return activeFlush
+  activeFlush = performDraftFlush(send).finally(() => { activeFlush = null })
+  return activeFlush
 }

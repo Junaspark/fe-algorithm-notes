@@ -4,8 +4,12 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 
 const run = vi.fn()
-vi.mock('next/dynamic', () => ({ default: () => (props: { onMount?(editor: unknown): void }) => {
-  props.onMount?.({ getAction: () => ({ run }) })
+vi.mock('@/components/practice/monaco-local', () => ({}))
+vi.mock('next/dynamic', () => ({ default: () => (props: { onMount?(editor: unknown, api: unknown): void }) => {
+  props.onMount?.(
+    { getAction: () => ({ run }), getModel: () => ({ uri: 'test://model' }) },
+    { languages: { typescript: { getJavaScriptWorker: async () => async () => ({}) } } },
+  )
   return <div aria-label="Monaco test editor" />
 } }))
 

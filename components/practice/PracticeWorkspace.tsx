@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TestCase, RunResult } from '@/workers/runner.protocol'
 import { runTests } from '@/workers/runner-client'
 import CodeEditor from './CodeEditor'
@@ -21,17 +21,18 @@ export default function PracticeWorkspace({ exercise, userId, initialDraft }: Pr
   const [conflict, setConflict] = useState<{ operation: QueuedDraft; serverVersion: number } | null>(null)
   const [busy, setBusy] = useState(false)
   const [startedAt] = useState(() => Date.now())
+  const savedCode = useRef(initialDraft.code)
 
   const sendDraft = useCallback(async (draft: QueuedDraft): Promise<DraftSendResult> => {
     const response = await fetch('/api/drafts', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(draft) })
     if (response.status === 409) { const details = await response.json() as { serverVersion: number; localVersion: number }; setConflict({ operation: draft, serverVersion: details.serverVersion }); setFeedback({ message: '草稿版本冲突', tone: 'warning' }); return { kind: 'conflict', ...details } }
     if (!response.ok) return { kind: 'retry' }
     const saved = await response.json() as { version: number }
-    setVersion(saved.version); setConflict(null); setFeedback({ message: '草稿已保存', tone: 'success' }); return { kind: 'saved', version: saved.version }
+    savedCode.current = draft.code; setVersion(saved.version); setConflict(null); setFeedback({ message: '草稿已保存', tone: 'success' }); return { kind: 'saved', version: saved.version }
   }, [])
 
   useEffect(() => {
-    if (code === initialDraft.code) return
+    if (code === savedCode.current) return
     const timer = window.setTimeout(async () => {
       const operation = { key: `${userId}:${exercise.id}`, operationId: crypto.randomUUID(), exerciseId: exercise.id, code, expectedVersion: version }
       try {

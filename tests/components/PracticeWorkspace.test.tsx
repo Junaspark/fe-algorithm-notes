@@ -37,6 +37,18 @@ describe('PracticeWorkspace', () => {
     expect(JSON.parse(retries.at(-1)?.[1]?.body as string)).toMatchObject({ code: 'changed', expectedVersion: 4 })
   })
 
+  it('does not autosave unchanged code again after a successful version update', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ version: 1 }) })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<PracticeWorkspace exercise={exercise} userId="owner" initialDraft={{ code: exercise.starterCode, version: 0 }} />)
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'changed' } })
+    await act(async () => { vi.advanceTimersByTime(2000); await Promise.resolve(); await Promise.resolve() })
+    expect(fetchMock).toHaveBeenCalledOnce()
+    await act(async () => { vi.advanceTimersByTime(2000); await Promise.resolve() })
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
   it('implements roving keyboard navigation for WAI-ARIA tabs', () => {
     render(<PracticeWorkspace exercise={exercise} userId="owner" initialDraft={{ code: exercise.starterCode, version: 0 }} />)
     const tabs = screen.getAllByRole('tab')
