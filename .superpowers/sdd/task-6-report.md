@@ -93,3 +93,21 @@ pnpm playwright test tests/e2e/mobile-practice.spec.ts
 - PASS: `CI=true AUTH_SECRET=test-secret AUTH_GITHUB_ID=test-client AUTH_GITHUB_SECRET=test-client-secret DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/fe_algorithm_gym OWNER_USER_ID=test-owner CRON_SECRET=test-cron pnpm build` — Next.js 16.2.10 Turbopack compiled, typechecked, and generated 11/11 static pages.
 - PASS: `git diff --check`.
 - Existing non-failing tool warning: `packageManager` is declared as floating `pnpm@10`, so the managed runtime warns that it is not an exact version.
+
+## Final idempotency and migration review fix (2026-07-16)
+
+- Rechecks the exact owner/exercise/request tuple after an active-plan lock miss, so a concurrent retry of the final item returns the winner's submission instead of `ACTIVE_PLAN_NOT_FOUND`. The lookup remains scoped to the authenticated user and cannot replay another user's result.
+- Added a deterministic PGlite `Promise.all` regression that forces the loser's initial lookup to observe the stale miss from the PostgreSQL race, while all subsequent reads/writes use the real database. It asserts equal responses and exactly one submission, Git job, and Agent job.
+- Replaced the unjournaled hand-written association migration with a Drizzle-generated migration and snapshot. The old application did not consume Agent jobs and deployed databases are expected to contain none; as an explicit safe upgrade policy, any unassociated legacy Agent jobs are discarded before adding required `plan_id` and `submission_id` columns. This avoids fabricating ownership and lets both fresh and legacy PGlite databases enforce the runtime `NOT NULL` schema.
+- The required workspace browser gate exposed a repeatable Monaco startup race on desktop (`JavaScript not registered!`). The editor now retries the local JavaScript worker warm-up for up to two seconds; the gate subsequently passes at both desktop and mobile sizes without CDN access or worker fallback.
+
+### Exact final verification
+
+- PASS: `CI=true ./node_modules/.bin/vitest run --reporter=default` — 21 files, 83 tests.
+- PASS: `CI=true ./node_modules/.bin/vitest run tests/db/repositories.integration.test.ts --reporter=default` — 1 file, 9 tests, including concurrent final-submit and legacy migration upgrade coverage.
+- PASS: `CI=true ./node_modules/.bin/eslint .`.
+- PASS: `CI=true ./node_modules/.bin/tsc --noEmit`.
+- PASS: `CI=true AUTH_SECRET=test-secret AUTH_GITHUB_ID=test-client AUTH_GITHUB_SECRET=test-client-secret DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/fe_algorithm_gym OWNER_USER_ID=test-owner CRON_SECRET=test-cron ./node_modules/.bin/next build` — compiled, typechecked, and generated 11/11 static pages.
+- PASS: `CI=true ./node_modules/.bin/playwright test tests/e2e/mobile-practice.spec.ts --reporter=line` — 2/2 Chromium workspace tests.
+- PASS: `CI=true ./node_modules/.bin/playwright test e2e/runner-browser.spec.ts --reporter=line` — 3/3 real Task 5 Worker tests.
+- PASS: `git diff --check`.

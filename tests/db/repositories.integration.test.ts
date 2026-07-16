@@ -33,7 +33,7 @@ describe('PostgreSQL repositories', () => {
     db = drizzle(client, { schema })
     const migration = await readFile(path.join(process.cwd(), 'drizzle/0000_silky_juggernaut.sql'), 'utf8')
     await client.exec(migration.replaceAll('--> statement-breakpoint', ''))
-    for (const name of ['0002_rich_raider.sql', '0003_submission_job_idempotency.sql']) {
+    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql']) {
       await client.exec((await readFile(path.join(process.cwd(), 'drizzle', name), 'utf8')).replaceAll('--> statement-breakpoint', ''))
     }
     await db.insert(schema.exercises).values([
@@ -160,5 +160,90 @@ describe('PostgreSQL repositories', () => {
     expect(await db.select().from(schema.gitSyncJobs)).toHaveLength(1)
     expect(await db.select().from(schema.agentJobs)).toHaveLength(1)
     expect((await db.select().from(schema.agentJobs))[0]).toMatchObject({ submissionId: completed.submissionId })
+  })
+
+  it('linearizes concurrent retries of the final passing submission', async () => {
+    const userId = '00000000-0000-4000-8000-000000000009'
+    await createPlanRepository(db).create({ userId, localDate: '2026-07-15', exerciseIds: ['a', 'b'] })
+    const input = (exerciseId: string, requestId: string) => ({
+      userId,
+      exerciseId,
+      code: `function ${exerciseId}(){return true}`,
+      complexityAnswer: 'O(1)',
+      elapsedSeconds: 5,
+      evidence: { scope: 'full' as const, requestId, tests: [{ name: 'works', status: 'passed' as const }] },
+    })
+    const persist = createPassingSubmissionPersistence(db)
+    await persist(input('a', 'run-a'))
+
+    let selectCount = 0
+    const winnerCompleted = persist(input('b', 'run-final'))
+    const staleReplayDb = {
+      transaction: async (callback: (tx: unknown) => unknown) => {
+        await winnerCompleted
+        await db.select().from(schema.dailyPlans).where(eq(schema.dailyPlans.userId, userId))
+        return db.transaction(async tx => callback(new Proxy(tx, {
+          get(target, property, receiver) {
+            if (property !== 'select') return Reflect.get(target, property, receiver)
+            return (...args: unknown[]) => {
+              selectCount += 1
+              if (selectCount !== 2 && selectCount !== 3) return Reflect.apply(target.select, target, args)
+              return {
+                from: () => ({
+                  where: () => ({
+                    for: () => ({
+                      limit: async () => [],
+                    }),
+                    limit: async () => [],
+                  }),
+                }),
+              }
+            }
+          },
+        })))
+      },
+    } as unknown as typeof db
+
+    const results = await Promise.all([
+      winnerCompleted,
+      createPassingSubmissionPersistence(staleReplayDb)(input('b', 'run-final')),
+    ])
+
+    expect(results[0]).toEqual(results[1])
+    expect(results[0].planCompleted).toBe(true)
+    expect(await db.select().from(schema.submissions).where(eq(schema.submissions.requestId, 'run-final'))).toHaveLength(1)
+    expect(await db.select().from(schema.gitSyncJobs)).toHaveLength(1)
+    expect(await db.select().from(schema.agentJobs)).toHaveLength(1)
+  })
+
+  it('upgrades legacy Agent jobs to required submission associations safely', async () => {
+    const legacyClient = new PGlite()
+
+    try {
+      const base = await readFile(path.join(process.cwd(), 'drizzle/0000_silky_juggernaut.sql'), 'utf8')
+      await legacyClient.exec(base.replaceAll('--> statement-breakpoint', ''))
+      await legacyClient.exec(`
+        INSERT INTO agent_jobs (user_id, payload_version, payload)
+        VALUES ('00000000-0000-4000-8000-000000000010', 1, '{}')
+      `)
+      await legacyClient.exec(await readFile(path.join(process.cwd(), 'drizzle/0002_rich_raider.sql'), 'utf8'))
+      const associationMigration = await readFile(path.join(process.cwd(), 'drizzle/0003_lucky_phil_sheldon.sql'), 'utf8')
+      await legacyClient.exec(associationMigration.replaceAll('--> statement-breakpoint', ''))
+
+      const jobs = await legacyClient.query('SELECT * FROM agent_jobs')
+      const columns = await legacyClient.query<{ column_name: string; is_nullable: string }>(`
+        SELECT column_name, is_nullable
+        FROM information_schema.columns
+        WHERE table_name = 'agent_jobs' AND column_name IN ('plan_id', 'submission_id')
+        ORDER BY column_name
+      `)
+      expect(jobs.rows).toHaveLength(0)
+      expect(columns.rows).toEqual([
+        { column_name: 'plan_id', is_nullable: 'NO' },
+        { column_name: 'submission_id', is_nullable: 'NO' },
+      ])
+    } finally {
+      await legacyClient.close()
+    }
   })
 })

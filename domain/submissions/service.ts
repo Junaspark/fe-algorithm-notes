@@ -20,7 +20,12 @@ export function createPassingSubmissionPersistence<TQuery extends PgQueryResultH
       }
 
       const [plan] = await tx.select().from(schema.dailyPlans).where(and(eq(schema.dailyPlans.userId, input.userId), eq(schema.dailyPlans.status, 'active'))).for('update').limit(1)
-      if (!plan) throw new Error('ACTIVE_PLAN_NOT_FOUND')
+      if (!plan) {
+        const [replayed] = await tx.select().from(schema.submissions).where(and(eq(schema.submissions.userId, input.userId), eq(schema.submissions.exerciseId, input.exerciseId), eq(schema.submissions.requestId, input.evidence.requestId))).limit(1)
+        if (!replayed) throw new Error('ACTIVE_PLAN_NOT_FOUND')
+        const [state] = await tx.select({ status: schema.dailyPlans.status }).from(schema.planItems).innerJoin(schema.dailyPlans, eq(schema.planItems.planId, schema.dailyPlans.id)).where(eq(schema.planItems.submissionId, replayed.id)).limit(1)
+        return { submissionId: replayed.id, completed: true, planCompleted: state?.status === 'completed' }
+      }
       const [item] = await tx.select().from(schema.planItems).where(and(eq(schema.planItems.planId, plan.id), eq(schema.planItems.exerciseId, input.exerciseId))).limit(1)
       if (!item) throw new Error('EXERCISE_NOT_IN_ACTIVE_PLAN')
       const [submission] = await tx.insert(schema.submissions).values({ userId: input.userId, exerciseId: input.exerciseId, requestId: input.evidence.requestId, code: input.code, status: 'passed', testResult: { passed: input.evidence.tests.length, failed: 0 } }).onConflictDoNothing().returning()
