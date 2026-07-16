@@ -9,6 +9,8 @@ import * as schema from '@/db/schema'
 import { createDraftRepository, createPlanRepository } from '@/domain/plans/repository'
 import { createSubmissionRepository } from '@/domain/submissions/repository'
 import { createPassingSubmissionPersistence } from '@/domain/submissions/service'
+import { DrizzleAgentJobRepository } from '@/adapters/agents/codex-bridge'
+import type { AgentJob } from '@/domain/agents/contracts'
 import { seedExercises } from '@/scripts/seed'
 
 const exercise = (id: string, kind: 'algorithm' | 'frontend') => ({
@@ -33,7 +35,7 @@ describe('PostgreSQL repositories', () => {
     db = drizzle(client, { schema })
     const migration = await readFile(path.join(process.cwd(), 'drizzle/0000_silky_juggernaut.sql'), 'utf8')
     await client.exec(migration.replaceAll('--> statement-breakpoint', ''))
-    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql']) {
+    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql']) {
       await client.exec((await readFile(path.join(process.cwd(), 'drizzle', name), 'utf8')).replaceAll('--> statement-breakpoint', ''))
     }
     await db.insert(schema.exercises).values([
@@ -229,6 +231,7 @@ describe('PostgreSQL repositories', () => {
       await legacyClient.exec(await readFile(path.join(process.cwd(), 'drizzle/0002_rich_raider.sql'), 'utf8'))
       const associationMigration = await readFile(path.join(process.cwd(), 'drizzle/0003_lucky_phil_sheldon.sql'), 'utf8')
       await legacyClient.exec(associationMigration.replaceAll('--> statement-breakpoint', ''))
+      await legacyClient.exec((await readFile(path.join(process.cwd(), 'drizzle/0004_agent_job_leases.sql'), 'utf8')).replaceAll('--> statement-breakpoint', ''))
 
       const jobs = await legacyClient.query('SELECT * FROM agent_jobs')
       const columns = await legacyClient.query<{ column_name: string; is_nullable: string }>(`
@@ -240,10 +243,59 @@ describe('PostgreSQL repositories', () => {
       expect(jobs.rows).toHaveLength(0)
       expect(columns.rows).toEqual([
         { column_name: 'plan_id', is_nullable: 'NO' },
-        { column_name: 'submission_id', is_nullable: 'NO' },
+        { column_name: 'submission_id', is_nullable: 'YES' },
       ])
     } finally {
       await legacyClient.close()
     }
+  })
+
+  it('persists review and selection jobs and atomically leases each once', async () => {
+    const userId = '00000000-0000-4000-8000-000000000011'
+    const plan = await createPlanRepository(db).create({ userId, localDate: '2026-07-16', exerciseIds: ['a', 'b'] })
+    const [submission] = await db.insert(schema.submissions).values({ userId, exerciseId: 'a', code: 'ok', status: 'passed', testResult: { passed: 1, failed: 0 } }).returning()
+    const base = {
+      schemaVersion: 'agent-job.v1' as const, userId, planId: plan.id, attempt: 1, maxAttempts: 3,
+      deadline: '2026-07-16T10:00:00.000Z',
+    }
+    const review: AgentJob = {
+      ...base, id: crypto.randomUUID(), jobType: 'review-submission', submissionId: submission.id,
+      idempotencyKey: `review:${submission.id}`,
+      context: { exerciseId: 'a', exerciseKind: 'algorithm', code: 'ok', testSummary: { passed: 1, failed: 0 } },
+    }
+    const selection: AgentJob = {
+      ...base, id: crypto.randomUUID(), jobType: 'select-exercises', idempotencyKey: `select:${plan.id}`,
+      context: { localDate: '2026-07-16', candidates: [{ id: 'a', kind: 'algorithm', difficulty: 'medium' }, { id: 'b', kind: 'frontend', difficulty: 'medium' }], recentExerciseIds: [] },
+    }
+    const repository = new DrizzleAgentJobRepository(db)
+    await repository.persist(review)
+    await repository.persist(selection)
+    await expect(repository.persist({ ...selection, deadline: '2026-07-16T11:00:00.000Z' })).rejects.toThrow('AGENT_JOB_IMMUTABLE_MISMATCH')
+    const [first, second] = await Promise.all([
+      repository.claim(10, 'worker-a', new Date('2026-07-16T09:00:00Z'), 60_000),
+      repository.claim(10, 'worker-b', new Date('2026-07-16T09:00:00Z'), 60_000),
+    ])
+    expect([...first, ...second]).toHaveLength(2)
+    expect(new Set([...first, ...second].map(claim => claim.job.id)).size).toBe(2)
+    expect(await repository.claim(10, 'worker-c', new Date('2026-07-16T09:00:30Z'), 60_000)).toEqual([])
+    expect(await repository.claim(10, 'worker-c', new Date('2026-07-16T09:01:01Z'), 60_000)).toHaveLength(2)
+  })
+
+  it('quarantines an invalid legacy row without blocking valid claims', async () => {
+    const userId = '00000000-0000-4000-8000-000000000012'
+    const plan = await createPlanRepository(db).create({ userId, localDate: '2026-07-16', exerciseIds: ['a', 'b'] })
+    await db.insert(schema.agentJobs).values({
+      userId, planId: plan.id, jobType: 'select-exercises', idempotencyKey: 'bad', payloadVersion: 1, payload: {},
+    })
+    const valid: AgentJob = {
+      schemaVersion: 'agent-job.v1', id: crypto.randomUUID(), jobType: 'select-exercises', userId, planId: plan.id,
+      idempotencyKey: 'good', attempt: 1, maxAttempts: 3, deadline: '2026-07-16T10:00:00.000Z',
+      context: { localDate: '2026-07-16', candidates: [{ id: 'a', kind: 'algorithm', difficulty: 'medium' }, { id: 'b', kind: 'frontend', difficulty: 'medium' }], recentExerciseIds: [] },
+    }
+    const repository = new DrizzleAgentJobRepository(db)
+    await repository.persist(valid)
+    const claims = await repository.claim(10, 'worker', new Date('2026-07-16T09:00:00Z'), 60_000)
+    expect(claims.map(claim => claim.job.id)).toEqual([valid.id])
+    expect((await db.select().from(schema.agentJobs).where(eq(schema.agentJobs.idempotencyKey, 'bad')))[0].status).toBe('failed')
   })
 })

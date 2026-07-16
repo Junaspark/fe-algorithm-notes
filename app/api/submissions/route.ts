@@ -5,7 +5,7 @@ const Evidence = z.object({
   tests: z.array(z.object({ name: z.string().min(1), status: z.enum(['passed', 'failed', 'error', 'timeout']) })).min(1),
 }).refine(value => value.tests.every(test => test.status === 'passed'), 'Every full test must pass')
 const Input = z.object({
-  exerciseId: z.string().regex(/^[a-z0-9-]+$/), code: z.string().min(1).max(100_000),
+  exerciseId: z.string().regex(/^[a-z0-9-]+$/), code: z.string().min(1).max(48 * 1024),
   evidence: Evidence, complexityAnswer: z.string().min(1).max(500), elapsedSeconds: z.number().int().min(0).max(86_400),
 })
 export type SubmissionInput = z.infer<typeof Input> & { userId: string }
@@ -22,8 +22,9 @@ export function createSubmissionRoute(deps: Dependencies) {
     if (!parsed.success) {
       const evidenceOnly = z.object({ evidence: z.object({ scope: z.string().optional(), tests: z.array(z.object({ status: z.string() })).optional() }).optional() }).safeParse(raw)
       const evidence = evidenceOnly.success ? evidenceOnly.data.evidence : undefined
-      const status = evidence && (evidence.scope !== 'full' || evidence.tests?.some(test => test.status !== 'passed')) ? 422 : 400
-      return Response.json({ code: status === 422 ? 'FULL_TEST_EVIDENCE_REQUIRED' : 'INVALID_SUBMISSION', issues: parsed.error.issues }, { status })
+      const oversized = typeof raw === 'object' && raw !== null && 'code' in raw && typeof raw.code === 'string' && raw.code.length > 48 * 1024
+      const status = oversized ? 413 : evidence && (evidence.scope !== 'full' || evidence.tests?.some(test => test.status !== 'passed')) ? 422 : 400
+      return Response.json({ code: oversized ? 'SUBMISSION_TOO_LARGE' : status === 422 ? 'FULL_TEST_EVIDENCE_REQUIRED' : 'INVALID_SUBMISSION', issues: parsed.error.issues }, { status })
     }
     return Response.json(await deps.submit({ userId, ...parsed.data }), { status: 201 })
   }

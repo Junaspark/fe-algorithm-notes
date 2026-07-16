@@ -28,7 +28,8 @@ describe('agent orchestrator', () => {
     expect(retryable.status).toBe('retryable')
     expect((await repository.get(reviewJob.id))?.job.attempt).toBe(2)
 
-    await orchestrator.run({ ...reviewJob, attempt: 3 })
+    await orchestrator.run(reviewJob)
+    await orchestrator.run(reviewJob)
     const stored = await repository.get(reviewJob.id)
     expect(stored?.status).toBe('succeeded')
     expect(stored?.result?.metadata.adapter).toBe('deterministic-fallback')
@@ -42,5 +43,42 @@ describe('agent orchestrator', () => {
       now: () => new Date('2026-07-16T09:00:00Z'),
     }).run(reviewJob)
     expect(JSON.stringify(result)).not.toMatch(/mastery|gitExport|rawText/)
+  })
+
+  it('rejects an immutable same-id mismatch', async () => {
+    const repository = new InMemoryAgentJobRepository()
+    await repository.persist(reviewJob)
+    await expect(repository.persist({ ...reviewJob, idempotencyKey: 'different' })).rejects.toThrow('AGENT_JOB_IMMUTABLE_MISMATCH')
+  })
+
+  it('returns the durable callback winner when a stale fallback loses its CAS', async () => {
+    const repository = new InMemoryAgentJobRepository()
+    const winner = {
+      schemaVersion: 'agent-job.v1' as const,
+      jobId: reviewJob.id,
+      idempotencyKey: reviewJob.idempotencyKey,
+      jobType: 'review-submission' as const,
+      status: 'succeeded' as const,
+      completedAt: '2026-07-16T10:00:00.000Z',
+      metadata: { adapter: 'codex-bridge', model: 'codex', promptVersion: 'review-v1' },
+      payload: { summary: 'Callback won', strengths: [], improvements: [], followUpQuestions: [] },
+    }
+    const adapter: AgentAdapter = {
+      dispatch: async () => undefined,
+      getResult: async () => null,
+      healthCheck: async () => ({ healthy: true, adapter: 'slow', model: 'slow-v1', promptVersion: 'review-v1' }),
+    }
+    await repository.persist({ ...reviewJob, attempt: 3 })
+    const originalComplete = repository.complete.bind(repository)
+    repository.complete = async (...args) => {
+      await originalComplete(reviewJob.id, winner, { statuses: ['queued'], attempt: 3 })
+      return originalComplete(...args)
+    }
+    const result = await createAgentOrchestrator({
+      repository,
+      adapter,
+      now: () => new Date('2026-07-16T10:00:01Z'),
+    }).run({ ...reviewJob, attempt: 3 })
+    expect(result).toEqual(winner)
   })
 })

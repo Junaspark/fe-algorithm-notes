@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { z } from 'zod'
 import { AgentResultSchema, MAX_AGENT_MESSAGE_BYTES } from '@/domain/agents/contracts'
 import type { AgentJobRepository } from '@/domain/agents/orchestrator'
 import { getAgentJobStore, setAgentJobStoreForTests } from '../../store'
@@ -21,20 +22,32 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (Buffer.byteLength(body, 'utf8') > MAX_AGENT_MESSAGE_BYTES) return Response.json({ error: 'Payload too large' }, { status: 413 })
   if (!validSignature(body, request.headers.get('x-agent-signature'), secret)) return Response.json({ error: 'Invalid signature' }, { status: 401 })
 
-  let result
+  let callback
   try {
-    result = AgentResultSchema.parse(JSON.parse(body))
+    callback = z.object({
+      leaseToken: z.string().uuid(),
+      attempt: z.number().int().positive(),
+      result: AgentResultSchema,
+    }).strict().parse(JSON.parse(body))
   } catch {
     return Response.json({ error: 'Invalid Agent result' }, { status: 400 })
   }
   const { id } = await context.params
+  const result = callback.result
   const repository = await getAgentJobStore()
   const stored = await repository.get(id)
   if (!stored) return Response.json({ error: 'Agent job not found' }, { status: 404 })
   if (result.jobId !== id || result.idempotencyKey !== stored.job.idempotencyKey || result.jobType !== stored.job.jobType) {
     return Response.json({ error: 'Agent result does not match job' }, { status: 409 })
   }
+  if (stored.status === 'succeeded') {
+    const replay = await repository.complete(id, result, { statuses: ['running'], attempt: callback.attempt, leaseToken: callback.leaseToken })
+    return replay.kind === 'replay'
+      ? Response.json({ accepted: true }, { status: 202 })
+      : Response.json({ error: 'Terminal result conflict' }, { status: 409 })
+  }
   if (Date.now() > new Date(stored.job.deadline).getTime()) return Response.json({ error: 'Agent job expired' }, { status: 410 })
-  await repository.saveResult(id, result)
+  const outcome = await repository.complete(id, result, { statuses: ['running'], attempt: callback.attempt, leaseToken: callback.leaseToken })
+  if (outcome.kind === 'conflict' || outcome.kind === 'lost') return Response.json({ error: 'Agent claim or terminal result conflict' }, { status: 409 })
   return Response.json({ accepted: true }, { status: 202 })
 }

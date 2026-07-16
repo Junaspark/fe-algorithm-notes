@@ -25,3 +25,20 @@
 - `git diff --check` — passed.
 
 The repository package manager wrapper attempted an online dependency refresh and failed in the restricted environment, so verification used the already-installed project binaries in `node_modules/.bin`.
+
+## Review fixes
+
+- Evolved `agent_jobs` so `review-submission` retains exactly-one-job-per-submission while `select-exercises` uses a nullable submission association and owner-scoped idempotency. Migration `0004_agent_job_leases.sql` backfills envelope columns, removes invalid/duplicate legacy rows deterministically, and adds the partial review and owner/idempotency indexes.
+- Submission completion now constructs and validates the complete `AgentJobSchema` envelope before insertion. Code over 48 KiB is rejected at the API boundary with `413 SUBMISSION_TOO_LARGE`, so no oversized submission or poisoned Agent row is persisted.
+- Repository persistence rejects immutable same-ID mismatches while treating durable `attempt` as mutable. Orchestrator decisions use the stored envelope and all terminal/retry transitions use expected status plus attempt CAS semantics; stale fallback work returns the durable callback winner.
+- Replaced pending-list behavior with atomic claims carrying `workerId`, `leaseToken`, `leaseUntil`, and durable `attempt`. Live leases are skipped, expired leases are requeued by claiming, and invalid legacy payloads are quarantined individually.
+- Callback bodies are now strict signed envelopes binding the lease token and attempt to the result. Current lease ownership is verified transactionally. Canonically identical terminal replays return `202`; different terminal results return `409` without overwriting the winner.
+- Updated the scheduled-task documentation with the exact claim, lease, HMAC callback, retry, replay, conflict, and stop protocol.
+
+## Review-fix TDD and verification
+
+- Confirmed new tests failed first for missing claim/complete APIs, immutable mismatch acceptance, oversized submission acceptance, stale claims, and terminal conflicts.
+- Production PGlite coverage now exercises both job types, migration nullability, atomic competing workers, expired lease reclamation, and invalid-row quarantine.
+- Focused Agent/API/DB/submission verification: 10 files, 46 tests passed.
+- Full Vitest verification: 25 files, 101 tests passed.
+- TypeScript, ESLint, production Next build, and `git diff --check` passed.

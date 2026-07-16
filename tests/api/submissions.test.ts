@@ -30,4 +30,12 @@ describe('POST /api/submissions', () => {
     const route = createSubmissionRoute({ authenticate: vi.fn().mockResolvedValue({ user: { id: 'owner' } }), submit: vi.fn() })
     expect((await route(request({ ...valid, elapsedSeconds: -1 }))).status).toBe(400)
   })
+
+  it('rejects code too large for a complete review envelope before persistence', async () => {
+    const submit = vi.fn()
+    const route = createSubmissionRoute({ authenticate: vi.fn().mockResolvedValue({ user: { id: 'owner' } }), submit })
+    const response = await route(request({ ...valid, code: 'x'.repeat(49 * 1024) }))
+    expect(response.status).toBe(413)
+    expect(submit).not.toHaveBeenCalled()
+  })
 })

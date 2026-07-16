@@ -135,14 +135,23 @@ export const agentJobs = pgTable('agent_jobs', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull(),
   planId: uuid('plan_id').notNull().references(() => dailyPlans.id),
-  submissionId: uuid('submission_id').notNull().references(() => submissions.id),
+  submissionId: uuid('submission_id').references(() => submissions.id),
+  jobType: text('job_type').notNull(),
+  idempotencyKey: text('idempotency_key').notNull(),
   status: jobStatus('status').notNull().default('queued'),
+  attempt: integer('attempt').notNull().default(1),
+  workerId: text('worker_id'),
+  leaseToken: uuid('lease_token'),
+  leaseUntil: timestamp('lease_until', { withTimezone: true }),
   payloadVersion: integer('payload_version').notNull(),
   payload: jsonb('payload').$type<unknown>().notNull(),
   result: jsonb('result').$type<unknown>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [uniqueIndex('agent_jobs_submission_once').on(table.submissionId)])
+}, (table) => [
+  uniqueIndex('agent_jobs_review_submission_once').on(table.submissionId).where(sql`${table.jobType} = 'review-submission' AND ${table.submissionId} IS NOT NULL`),
+  uniqueIndex('agent_jobs_owner_idempotency_once').on(table.userId, table.idempotencyKey),
+])
 
 export const gitSyncJobs = pgTable('git_sync_jobs', {
   id: uuid('id').primaryKey().defaultRandom(),

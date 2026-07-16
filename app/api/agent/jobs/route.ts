@@ -1,5 +1,4 @@
 import { timingSafeEqual } from 'node:crypto'
-import { AgentJobSchema } from '@/domain/agents/contracts'
 import { getAgentJobStore } from './store'
 
 function authenticated(request: Request, secret: string) {
@@ -15,6 +14,7 @@ export async function GET(request: Request) {
   if (!secret) return Response.json({ error: 'Agent bridge is disabled' }, { status: 503 })
   if (!authenticated(request, secret)) return Response.json({ error: 'Invalid bridge secret' }, { status: 401 })
   const repository = await getAgentJobStore()
-  const pending = repository.pending ? await repository.pending(20) : []
-  return Response.json({ schemaVersion: 'agent-job.v1', jobs: pending.map(job => AgentJobSchema.parse(job)) })
+  const workerId = request.headers.get('x-agent-worker-id') || crypto.randomUUID()
+  const jobs = await repository.claim(20, workerId, new Date(), 5 * 60 * 1000)
+  return Response.json({ schemaVersion: 'agent-job.v1', jobs })
 }
