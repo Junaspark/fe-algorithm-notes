@@ -40,7 +40,32 @@ export function createPassingSubmissionPersistence<TQuery extends PgQueryResultH
       if (planCompleted) {
         await tx.update(schema.dailyPlans).set({ status: 'completed', completedAt: new Date() }).where(eq(schema.dailyPlans.id, plan.id))
         await tx.insert(schema.gitSyncJobs).values({ userId: input.userId, planId: plan.id }).onConflictDoNothing()
-        await tx.insert(schema.agentJobs).values({ userId: input.userId, planId: plan.id, submissionId: submission.id, payloadVersion: 1, payload: { submissionId: submission.id, planId: plan.id } }).onConflictDoNothing()
+        const agentJobId = crypto.randomUUID()
+        await tx.insert(schema.agentJobs).values({
+          id: agentJobId,
+          userId: input.userId,
+          planId: plan.id,
+          submissionId: submission.id,
+          payloadVersion: 1,
+          payload: {
+            schemaVersion: 'agent-job.v1',
+            id: agentJobId,
+            jobType: 'review-submission',
+            userId: input.userId,
+            planId: plan.id,
+            submissionId: submission.id,
+            idempotencyKey: `review:${submission.id}`,
+            attempt: 1,
+            maxAttempts: 3,
+            deadline: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            context: {
+              exerciseId: input.exerciseId,
+              exerciseKind: exercise.kind,
+              code: input.code,
+              testSummary: { passed: input.evidence.tests.length, failed: 0 },
+            },
+          },
+        }).onConflictDoNothing()
       }
       return { submissionId: submission.id, completed: true, planCompleted }
     })
