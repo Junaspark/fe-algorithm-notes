@@ -39,6 +39,7 @@ describe('export paths', () => {
 
   it('normalizes backslashes and permits Unicode under the exact roots', () => {
     expect(assertExportPath('solutions\\2026-07-16\\数组-去重.js')).toBe('solutions/2026-07-16/数组-去重.js')
+    expect(assertExportPath('solutions/2026-07-16/cafe\u0301.js')).toBe('solutions/2026-07-16/café.js')
   })
 })
 
@@ -65,5 +66,24 @@ describe('buildExportManifest', () => {
       ...completedPlan,
       items: [{ ...completedPlan.items[0], submission: { ...completedPlan.items[0].submission, code: 'x'.repeat(1024 * 1024 + 1) } }],
     })).toThrow('EXPORT_CONTENT_TOO_LARGE')
+  })
+
+  it('rejects paths that collide after Unicode NFC normalization', () => {
+    expect(() => buildExportManifest({
+      ...completedPlan,
+      items: [
+        completedPlan.items[0],
+        {
+          ...completedPlan.items[0],
+          position: 1,
+          exercise: { ...completedPlan.items[0].exercise, id: 'cafe\u0301' },
+        },
+        {
+          ...completedPlan.items[0],
+          position: 2,
+          exercise: { ...completedPlan.items[0].exercise, id: 'café' },
+        },
+      ],
+    })).toThrow('DUPLICATE_EXPORT_PATH')
   })
 })

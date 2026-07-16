@@ -12,6 +12,7 @@ import { createPassingSubmissionPersistence } from '@/domain/submissions/service
 import { DrizzleAgentJobRepository } from '@/adapters/agents/codex-bridge'
 import type { AgentJob } from '@/domain/agents/contracts'
 import { seedExercises } from '@/scripts/seed'
+import { createGitSyncJobStore } from '@/scripts/process-git-sync'
 
 const exercise = (id: string, kind: 'algorithm' | 'frontend') => ({
   id,
@@ -322,5 +323,38 @@ describe('PostgreSQL repositories', () => {
     })
     expect(outcome.kind).toBe('lost')
     expect((await repository.get(job.id))?.result).toBeUndefined()
+  })
+
+  it('atomically claims Git sync work, reclaims expired leases, and skips exhausted jobs', async () => {
+    const userId = '00000000-0000-4000-8000-000000000099'
+    const plans = await db.insert(schema.dailyPlans).values([
+      { userId, localDate: '2026-07-13', status: 'completed', completedAt: new Date() },
+      { userId, localDate: '2026-07-14', status: 'completed', completedAt: new Date() },
+      { userId, localDate: '2026-07-15', status: 'completed', completedAt: new Date() },
+    ]).returning()
+    await db.insert(schema.gitSyncJobs).values([
+      { planId: plans[0].id, userId, status: 'failed', attempt: 3 },
+      { planId: plans[1].id, userId, status: 'queued', attempt: 1, expectedHeadSha: 'base' },
+      {
+        planId: plans[2].id, userId, status: 'running', attempt: 1, expectedHeadSha: 'base',
+        workerId: 'crashed', leaseToken: crypto.randomUUID(), leaseUntil: new Date('2026-07-16T08:00:00Z'),
+      },
+    ])
+    const github = { git: { getRef: async () => ({ data: { object: { sha: 'base' } } }) } }
+    const store = createGitSyncJobStore({ db, schema, github, owner: 'o', repo: 'r', leaseMs: 60_000 })
+    const now = new Date('2026-07-16T09:00:00Z')
+    const [first, second] = await Promise.all([
+      store.claim('worker-a', 3, now),
+      store.claim('worker-b', 3, now),
+    ])
+
+    expect(new Set([first?.id, second?.id]).size).toBe(2)
+    expect([first, second].map(job => job?.attempt).sort()).toEqual([1, 2])
+    const rows = await db.select().from(schema.gitSyncJobs)
+    expect(rows.find(row => row.planId === plans[0].id)?.status).toBe('dead')
+    expect(rows.filter(row => row.status === 'running')).toHaveLength(2)
+    expect(rows.filter(row => row.leaseUntil?.getTime() === now.getTime() + 60_000)).toHaveLength(2)
+    await expect(store.recordCommit(first!.id, first!.workerId, crypto.randomUUID(), 'stale')).rejects.toThrow('GIT_SYNC_LEASE_LOST')
+    await expect(store.recordCommit(first!.id, first!.workerId, first!.leaseToken, 'expired')).rejects.toThrow('GIT_SYNC_LEASE_LOST')
   })
 })

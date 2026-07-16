@@ -21,7 +21,7 @@ export const planStatus = pgEnum('plan_status', ['active', 'completed'])
 export const planItemStatus = pgEnum('plan_item_status', ['pending', 'completed'])
 export const submissionStatus = pgEnum('submission_status', ['passed', 'failed'])
 export const reviewStatus = pgEnum('review_status', ['pending', 'completed'])
-export const jobStatus = pgEnum('job_status', ['queued', 'running', 'succeeded', 'failed'])
+export const jobStatus = pgEnum('job_status', ['queued', 'running', 'succeeded', 'failed', 'dead'])
 
 export const users = pgTable('user', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -161,6 +161,7 @@ export const gitSyncJobs = pgTable('git_sync_jobs', {
   attempt: integer('attempt').notNull().default(1),
   workerId: text('worker_id'),
   leaseToken: uuid('lease_token'),
+  leaseUntil: timestamp('lease_until', { withTimezone: true }),
   expectedHeadSha: text('expected_head_sha'),
   commitSha: text('commit_sha'),
   error: text('error'),

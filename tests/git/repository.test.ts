@@ -34,7 +34,7 @@ describe('GitHubRepository', () => {
     expect(github.git.createCommit).toHaveBeenCalledWith(expect.objectContaining({
       owner: 'Junaspark',
       repo: 'gym',
-      message: 'practice: complete 2026-07-16 daily exercises',
+      message: expect.stringMatching(/^practice: complete 2026-07-16 daily exercises\n\nFE-Algorithm-Gym-Manifest: sha256:[a-f0-9]{64}$/),
       tree: 'tree-new',
       parents: ['recorded-old'],
       author: expect.objectContaining({ date: '2026-07-16T12:00:00.000Z' }),
@@ -54,7 +54,7 @@ describe('GitHubRepository', () => {
     const repository = new GitHubRepository({ github, owner: 'Junaspark', repo: 'gym' })
 
     await expect(repository.commitToMain(manifest, 'recorded-old')).rejects.toThrow('REMOTE_HEAD_CHANGED')
-    expect(github.git.createCommit).not.toHaveBeenCalled()
+    expect(github.git.updateRef).not.toHaveBeenCalled()
   })
 
   it.each([409, 422])('classifies update-ref HTTP %s as retryable without force', async status => {
@@ -80,7 +80,25 @@ describe('GitHubRepository', () => {
     const repository = new GitHubRepository({ github, owner: 'Junaspark', repo: 'gym' })
 
     await expect(repository.commitToMain(manifest, 'recorded-old', 'commit-new')).resolves.toEqual({ commitSha: 'commit-new', applied: false })
-    expect(github.git.createBlob).not.toHaveBeenCalled()
+    expect(github.git.updateRef).not.toHaveBeenCalled()
+  })
+
+  it('rejects a malicious commit with the same human message and parent but different content', async () => {
+    const github = githubMock()
+    github.git.getRef.mockResolvedValue({ data: { object: { sha: 'attacker-commit' } } })
+    github.git.getCommit.mockResolvedValueOnce({
+      data: {
+        sha: 'recorded-old',
+        message: 'old',
+        tree: { sha: 'tree-old' },
+        parents: [],
+      },
+    })
+    github.git.createCommit.mockResolvedValue({ data: { sha: 'expected-generated-commit' } })
+    const repository = new GitHubRepository({ github, owner: 'Junaspark', repo: 'gym' })
+
+    await expect(repository.commitToMain(manifest, 'recorded-old')).rejects.toThrow('REMOTE_HEAD_CHANGED')
+    expect(github.git.updateRef).not.toHaveBeenCalled()
   })
 
   it('does not update the ref after a partial blob or commit failure', async () => {

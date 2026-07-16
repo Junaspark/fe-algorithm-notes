@@ -6,7 +6,7 @@ export function assertExportPath(candidate: string): string {
   if (!candidate || candidate.includes('\0') || path.posix.isAbsolute(candidate) || path.win32.isAbsolute(candidate)) {
     throw new Error('EXPORT_PATH_NOT_ALLOWED')
   }
-  const slashPath = candidate.replaceAll('\\', '/')
+  const slashPath = candidate.replaceAll('\\', '/').normalize('NFC')
   const rawSegments = slashPath.split('/')
   if (rawSegments.some(segment => segment === '..') || rawSegments[0]?.startsWith('.')) {
     throw new Error('EXPORT_PATH_NOT_ALLOWED')

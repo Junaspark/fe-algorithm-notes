@@ -1,6 +1,6 @@
 import { AgentJobSchema, AgentResultSchema, type AgentAdapter, type AgentJob, type AgentResult } from './contracts'
 
-export type JobStatus = 'queued' | 'running' | 'retryable' | 'succeeded' | 'failed'
+export type JobStatus = 'queued' | 'running' | 'retryable' | 'succeeded' | 'failed' | 'dead'
 export type StoredAgentJob = { job: AgentJob; status: JobStatus; result?: AgentResult; workerId?: string; leaseToken?: string; leaseUntil?: Date }
 export type AgentClaim = { job: AgentJob; workerId: string; leaseToken: string; leaseUntil: string }
 export type CompleteExpectation = { statuses: JobStatus[]; attempt: number; leaseToken?: string; now?: Date }
