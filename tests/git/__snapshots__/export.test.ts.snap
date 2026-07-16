@@ -1,0 +1,59 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildExportManifest > exports deterministic structured records without hidden or raw Agent data 1`] = `
+{
+  "files": [
+    {
+      "content": "{
+  "id": "数组-去重",
+  "title": "数组去重",
+  "kind": "algorithm",
+  "difficulty": "easy",
+  "language": "javascript",
+  "topics": [
+    "array"
+  ],
+  "prompt": "Return unique values.",
+  "starterCode": "export function unique() {}",
+  "publicTests": [
+    {
+      "name": "basic",
+      "args": [
+        [
+          1,
+          1
+        ]
+      ],
+      "expected": [
+        1
+      ],
+      "timeoutMs": 1000
+    }
+  ]
+}
+",
+      "path": "exercises/数组-去重.json",
+    },
+    {
+      "content": "# 2026-07-16
+
+## Daily exercises
+
+### 数组去重
+
+- Exercise: \`数组-去重\`
+- Kind: algorithm
+- Tests: 2 passed, 0 failed
+
+",
+      "path": "reports/2026-07-16.md",
+    },
+    {
+      "content": "export function unique(values) { return [...new Set(values)] }
+",
+      "path": "solutions/2026-07-16/数组-去重.js",
+    },
+  ],
+  "localDate": "2026-07-16",
+}
+`;

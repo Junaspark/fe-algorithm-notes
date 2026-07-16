@@ -35,7 +35,7 @@ describe('PostgreSQL repositories', () => {
     db = drizzle(client, { schema })
     const migration = await readFile(path.join(process.cwd(), 'drizzle/0000_silky_juggernaut.sql'), 'utf8')
     await client.exec(migration.replaceAll('--> statement-breakpoint', ''))
-    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql']) {
+    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql', '0005_git_sync_leases.sql']) {
       await client.exec((await readFile(path.join(process.cwd(), 'drizzle', name), 'utf8')).replaceAll('--> statement-breakpoint', ''))
     }
     await db.insert(schema.exercises).values([
@@ -232,6 +232,7 @@ describe('PostgreSQL repositories', () => {
       const associationMigration = await readFile(path.join(process.cwd(), 'drizzle/0003_lucky_phil_sheldon.sql'), 'utf8')
       await legacyClient.exec(associationMigration.replaceAll('--> statement-breakpoint', ''))
       await legacyClient.exec((await readFile(path.join(process.cwd(), 'drizzle/0004_agent_job_leases.sql'), 'utf8')).replaceAll('--> statement-breakpoint', ''))
+      await legacyClient.exec((await readFile(path.join(process.cwd(), 'drizzle/0005_git_sync_leases.sql'), 'utf8')).replaceAll('--> statement-breakpoint', ''))
 
       const jobs = await legacyClient.query('SELECT * FROM agent_jobs')
       const columns = await legacyClient.query<{ column_name: string; is_nullable: string }>(`
