@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 export const AGENT_SCHEMA_VERSION = 'agent-job.v1' as const
 export const MAX_AGENT_MESSAGE_BYTES = 64 * 1024
+export const MAX_REVIEW_CODE_BYTES = 48 * 1024
+export const utf8ByteLength = (value: string) => new TextEncoder().encode(value).byteLength
 
 const UuidSchema = z.string().uuid()
 const IsoDateSchema = z.string().datetime({ offset: true })
@@ -14,7 +16,7 @@ const MetadataSchema = z.object({
 const ReviewContextSchema = z.object({
   exerciseId: z.string().min(1).max(200),
   exerciseKind: z.enum(['algorithm', 'frontend']),
-  code: z.string().max(48 * 1024),
+  code: z.string().min(1).refine(value => utf8ByteLength(value) <= MAX_REVIEW_CODE_BYTES, 'Review code exceeds UTF-8 byte limit'),
   testSummary: z.object({ passed: z.number().int().nonnegative(), failed: z.number().int().nonnegative() }).strict(),
 }).strict()
 
@@ -52,7 +54,7 @@ export const AgentJobSchema = z.discriminatedUnion('jobType', [
   }).strict(),
 ]).superRefine((value, context) => {
   if (value.attempt > value.maxAttempts) context.addIssue({ code: 'custom', message: 'attempt exceeds maxAttempts' })
-  if (Buffer.byteLength(JSON.stringify(value), 'utf8') > MAX_AGENT_MESSAGE_BYTES) context.addIssue({ code: 'custom', message: 'Agent job exceeds 64 KiB' })
+  if (utf8ByteLength(JSON.stringify(value)) > MAX_AGENT_MESSAGE_BYTES) context.addIssue({ code: 'custom', message: 'Agent job exceeds 64 KiB' })
 })
 
 const ResultBaseSchema = z.object({
@@ -89,7 +91,7 @@ export const AgentResultSchema = z.discriminatedUnion('status', [
   ]),
   RetryableResultSchema,
 ]).superRefine((value, context) => {
-  if (Buffer.byteLength(JSON.stringify(value), 'utf8') > MAX_AGENT_MESSAGE_BYTES) context.addIssue({ code: 'custom', message: 'Agent result exceeds 64 KiB' })
+  if (utf8ByteLength(JSON.stringify(value)) > MAX_AGENT_MESSAGE_BYTES) context.addIssue({ code: 'custom', message: 'Agent result exceeds 64 KiB' })
 })
 
 export type AgentJob = z.infer<typeof AgentJobSchema>

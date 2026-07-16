@@ -1,4 +1,4 @@
-import { and, eq, inArray, lte, or } from 'drizzle-orm'
+import { and, eq, gt, inArray, lte, or } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import * as schema from '@/db/schema'
 import { AgentJobSchema, AgentResultSchema, type AgentAdapter, type AgentJob, type AgentResult } from '@/domain/agents/contracts'
@@ -62,14 +62,18 @@ export class DrizzleAgentJobRepository<TQuery extends PgQueryResultHKT> implemen
       if (row.status === 'succeeded' && currentResult) {
         return { kind: JSON.stringify(currentResult) === JSON.stringify(result) ? 'replay' : 'conflict', stored: storedFromRow(row) }
       }
-      if (!expected.statuses.includes(row.status) || row.attempt !== expected.attempt || (expected.leaseToken && row.leaseToken !== expected.leaseToken)) {
+      if (!expected.statuses.includes(row.status) || row.attempt !== expected.attempt || (expected.leaseToken && (row.leaseToken !== expected.leaseToken || !row.leaseUntil || !expected.now || row.leaseUntil <= expected.now))) {
         return { kind: 'lost', stored: storedFromRow(row) }
       }
       const databaseStatuses = expected.statuses.filter((status): status is 'queued' | 'running' | 'succeeded' | 'failed' => status !== 'retryable')
       const [updated] = await tx.update(schema.agentJobs).set({
         result, status: result.status === 'succeeded' ? 'succeeded' : 'queued',
         workerId: null, leaseToken: null, leaseUntil: null, updatedAt: new Date(),
-      }).where(and(eq(schema.agentJobs.id, id), inArray(schema.agentJobs.status, databaseStatuses), eq(schema.agentJobs.attempt, expected.attempt))).returning()
+      }).where(and(
+        eq(schema.agentJobs.id, id), inArray(schema.agentJobs.status, databaseStatuses), eq(schema.agentJobs.attempt, expected.attempt),
+        expected.leaseToken ? eq(schema.agentJobs.leaseToken, expected.leaseToken) : undefined,
+        expected.leaseToken && expected.now ? gt(schema.agentJobs.leaseUntil, expected.now) : undefined,
+      )).returning()
       return updated ? { kind: 'stored', stored: storedFromRow(updated) } : { kind: 'lost', stored: storedFromRow(row) }
     })
   }

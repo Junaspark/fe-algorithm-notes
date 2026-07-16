@@ -298,4 +298,28 @@ describe('PostgreSQL repositories', () => {
     expect(claims.map(claim => claim.job.id)).toEqual([valid.id])
     expect((await db.select().from(schema.agentJobs).where(eq(schema.agentJobs.idempotencyKey, 'bad')))[0].status).toBe('failed')
   })
+
+  it('rejects completion after the authoritative lease expiry without a reclaim', async () => {
+    const userId = '00000000-0000-4000-8000-000000000013'
+    const plan = await createPlanRepository(db).create({ userId, localDate: '2026-07-16', exerciseIds: ['a', 'b'] })
+    const job: AgentJob = {
+      schemaVersion: 'agent-job.v1', id: crypto.randomUUID(), jobType: 'select-exercises', userId, planId: plan.id,
+      idempotencyKey: 'lease-expiry', attempt: 1, maxAttempts: 3, deadline: '2026-07-16T10:00:00.000Z',
+      context: { localDate: '2026-07-16', candidates: [{ id: 'a', kind: 'algorithm', difficulty: 'medium' }, { id: 'b', kind: 'frontend', difficulty: 'medium' }], recentExerciseIds: [] },
+    }
+    const repository = new DrizzleAgentJobRepository(db)
+    await repository.persist(job)
+    const [claim] = await repository.claim(1, 'worker', new Date('2026-07-16T09:00:00Z'), 1_000)
+    const result = {
+      schemaVersion: 'agent-job.v1' as const, jobId: job.id, idempotencyKey: job.idempotencyKey,
+      jobType: 'select-exercises' as const, status: 'succeeded' as const, completedAt: '2026-07-16T09:00:02.000Z',
+      metadata: { adapter: 'codex-bridge', model: 'codex', promptVersion: 'selection-v1' },
+      payload: { algorithmExerciseId: 'a', frontendExerciseId: 'b', rationale: 'test' },
+    }
+    const outcome = await repository.complete(job.id, result, {
+      statuses: ['running'], attempt: 1, leaseToken: claim.leaseToken, now: new Date('2026-07-16T09:00:02Z'),
+    })
+    expect(outcome.kind).toBe('lost')
+    expect((await repository.get(job.id))?.result).toBeUndefined()
+  })
 })

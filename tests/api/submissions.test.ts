@@ -38,4 +38,13 @@ describe('POST /api/submissions', () => {
     expect(response.status).toBe(413)
     expect(submit).not.toHaveBeenCalled()
   })
+
+  it('counts UTF-8 bytes and rejects emoji code that would overflow the review envelope', async () => {
+    const submit = vi.fn()
+    const route = createSubmissionRoute({ authenticate: vi.fn().mockResolvedValue({ user: { id: 'owner' } }), submit })
+    const response = await route(request({ ...valid, code: '😀'.repeat(20_000) }))
+    expect(response.status).toBe(413)
+    expect(await response.json()).toMatchObject({ code: 'SUBMISSION_TOO_LARGE' })
+    expect(submit).not.toHaveBeenCalled()
+  })
 })

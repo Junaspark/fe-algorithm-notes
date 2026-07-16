@@ -3,7 +3,7 @@ import { AgentJobSchema, AgentResultSchema, type AgentAdapter, type AgentJob, ty
 export type JobStatus = 'queued' | 'running' | 'retryable' | 'succeeded' | 'failed'
 export type StoredAgentJob = { job: AgentJob; status: JobStatus; result?: AgentResult; workerId?: string; leaseToken?: string; leaseUntil?: Date }
 export type AgentClaim = { job: AgentJob; workerId: string; leaseToken: string; leaseUntil: string }
-export type CompleteExpectation = { statuses: JobStatus[]; attempt: number; leaseToken?: string }
+export type CompleteExpectation = { statuses: JobStatus[]; attempt: number; leaseToken?: string; now?: Date }
 export type CompleteOutcome = { kind: 'stored' | 'replay' | 'conflict' | 'lost'; stored: StoredAgentJob }
 const immutableJob = (job: AgentJob) => {
   const { attempt: _attempt, ...immutable } = job
@@ -57,7 +57,7 @@ export class InMemoryAgentJobRepository implements AgentJobRepository {
     if (current.status === 'succeeded' && current.result) {
       return { kind: JSON.stringify(current.result) === JSON.stringify(result) ? 'replay' : 'conflict', stored: current }
     }
-    if (!expected.statuses.includes(current.status) || current.job.attempt !== expected.attempt || (expected.leaseToken && current.leaseToken !== expected.leaseToken)) return { kind: 'lost', stored: current }
+    if (!expected.statuses.includes(current.status) || current.job.attempt !== expected.attempt || (expected.leaseToken && (current.leaseToken !== expected.leaseToken || !current.leaseUntil || !expected.now || current.leaseUntil <= expected.now))) return { kind: 'lost', stored: current }
     const stored: StoredAgentJob = { ...current, status: result.status === 'succeeded' ? 'succeeded' : 'retryable', result }
     this.jobs.set(id, stored)
     return { kind: 'stored', stored }

@@ -42,3 +42,10 @@ The repository package manager wrapper attempted an online dependency refresh an
 - Focused Agent/API/DB/submission verification: 10 files, 46 tests passed.
 - Full Vitest verification: 25 files, 101 tests passed.
 - TypeScript, ESLint, production Next build, and `git diff --check` passed.
+
+## Final review fixes
+
+- Completion now validates the current lease expiry against an authoritative server timestamp inside the same locked transaction as status, attempt, and token checks. A matching callback after lease expiry is rejected even before job deadline and without another worker reclaiming it.
+- Already-terminal callbacks retain result-based idempotency: an identical validated result replays with `202` after lease expiry, while a divergent result remains `409`.
+- Replaced Node-only `Buffer.byteLength` contract sizing with a shared `TextEncoder` UTF-8 helper. Submission validation now counts bytes, probes a complete review envelope, and returns `413 SUBMISSION_TOO_LARGE` for multibyte/emoji overflow before persistence.
+- Added API and production PGlite regressions for expired leases plus an approximately 20,000-emoji submission boundary case.

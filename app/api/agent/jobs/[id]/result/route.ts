@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
-import { AgentResultSchema, MAX_AGENT_MESSAGE_BYTES } from '@/domain/agents/contracts'
+import { AgentResultSchema, MAX_AGENT_MESSAGE_BYTES, utf8ByteLength } from '@/domain/agents/contracts'
 import type { AgentJobRepository } from '@/domain/agents/orchestrator'
 import { getAgentJobStore, setAgentJobStoreForTests } from '../../store'
 
@@ -15,11 +15,12 @@ function validSignature(body: string, signature: string | null, secret: string) 
   return supplied.length === expected.length && timingSafeEqual(supplied, expected)
 }
 
-export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+export function createAgentResultRoute(now: () => Date = () => new Date()) {
+return async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const secret = process.env.AGENT_BRIDGE_SECRET
   if (!secret) return Response.json({ error: 'Agent bridge is disabled' }, { status: 503 })
   const body = await request.text()
-  if (Buffer.byteLength(body, 'utf8') > MAX_AGENT_MESSAGE_BYTES) return Response.json({ error: 'Payload too large' }, { status: 413 })
+  if (utf8ByteLength(body) > MAX_AGENT_MESSAGE_BYTES) return Response.json({ error: 'Payload too large' }, { status: 413 })
   if (!validSignature(body, request.headers.get('x-agent-signature'), secret)) return Response.json({ error: 'Invalid signature' }, { status: 401 })
 
   let callback
@@ -46,8 +47,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       ? Response.json({ accepted: true }, { status: 202 })
       : Response.json({ error: 'Terminal result conflict' }, { status: 409 })
   }
-  if (Date.now() > new Date(stored.job.deadline).getTime()) return Response.json({ error: 'Agent job expired' }, { status: 410 })
-  const outcome = await repository.complete(id, result, { statuses: ['running'], attempt: callback.attempt, leaseToken: callback.leaseToken })
+  const serverNow = now()
+  if (serverNow.getTime() > new Date(stored.job.deadline).getTime()) return Response.json({ error: 'Agent job expired' }, { status: 410 })
+  const outcome = await repository.complete(id, result, { statuses: ['running'], attempt: callback.attempt, leaseToken: callback.leaseToken, now: serverNow })
   if (outcome.kind === 'conflict' || outcome.kind === 'lost') return Response.json({ error: 'Agent claim or terminal result conflict' }, { status: 409 })
   return Response.json({ accepted: true }, { status: 202 })
 }
+}
+
+export const POST = createAgentResultRoute()

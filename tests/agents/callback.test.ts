@@ -69,4 +69,15 @@ describe('agent result callback', () => {
     expect((await post({ leaseToken: claim.leaseToken, attempt: 1, result })).status).toBe(202)
     expect((await post({ leaseToken: claim.leaseToken, attempt: 1, result: { ...result, payload: { ...result.payload, summary: 'Different' } } })).status).toBe(409)
   })
+
+  it('rejects a matching callback after its lease expires before the job deadline', async () => {
+    const [claim] = await repository.claim(1, 'worker-1', new Date('2026-07-16T09:00:00Z'), 1_000)
+    vi.setSystemTime(new Date('2026-07-16T09:00:02Z'))
+    const payload = { leaseToken: claim.leaseToken, attempt: claim.job.attempt, result }
+    const body = JSON.stringify(payload)
+    const signature = createHmac('sha256', 'test-secret').update(body).digest('hex')
+    const response = await POST(new Request('http://local', { method: 'POST', body, headers: { 'x-agent-signature': `sha256=${signature}` } }), { params: Promise.resolve({ id: reviewJob.id }) })
+    expect(response.status).toBe(409)
+    expect((await repository.get(reviewJob.id))?.status).toBe('running')
+  })
 })
