@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
+import '../styles.css'
 
 export const metadata: Metadata = {
   title: '前端算法训练场',
@@ -9,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>{children}<ServiceWorkerRegistration /></body>
     </html>
   )
 }

@@ -15,6 +15,13 @@
       "when": 1784081309369,
       "tag": "0001_damp_william_stryker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784087947887,
+      "tag": "0002_rich_raider",
+      "breakpoints": true
     }
   ]
 }

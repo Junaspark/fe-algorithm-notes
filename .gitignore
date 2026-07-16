@@ -18,4 +18,5 @@ Thumbs.db
 .worktrees/
 .next/
 *.tsbuildinfo
+test-results/
 node_modules/

@@ -149,4 +149,4 @@ export const gitSyncJobs = pgTable('git_sync_jobs', {
   error: text('error'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (table) => [uniqueIndex('git_sync_jobs_plan_once').on(table.planId)])
