@@ -14,26 +14,16 @@
   },
   "publicTests": [
     {
-      "name": "第一个已兑现值",
-      "args": [
-        [
-          1,
-          2
-        ]
-      ],
-      "expected": 1,
-      "timeoutMs": 1000
+      "name": "通过规范行为场景",
+      "args": [],
+      "expected": true,
+      "scenario": "promise-race",
+      "timeoutMs": 3000
     }
   ],
   "hiddenTests": [],
   "legacy": {
-    "id": 8,
-    "title": "Promise.race",
-    "category": "Promise",
     "status": "修正后通过",
-    "difficulty": "简单",
-    "summary": "第一个 settled 的成员决定最终 Promise 的状态和值。",
-    "code": "function promiseRace(iterable) {\n  return new Promise((resolve, reject) => {\n    for (const item of iterable) {\n      Promise.resolve(item).then(resolve, reject)\n    }\n  })\n}",
     "complexity": "遍历时间 O(n)，额外空间 O(1)",
     "mistakes": [
       "Promise.race([]) 会永久保持 pending，而不是 resolve([])。"
@@ -41,6 +31,12 @@
     "questions": [
       "race 与 any 的核心区别是什么？",
       "为什么不需要完成计数？"
-    ]
+    ],
+    "id": 8,
+    "title": "Promise.race",
+    "category": "Promise",
+    "difficulty": "简单",
+    "summary": "第一个 settled 的成员决定最终 Promise 的状态和值。",
+    "code": "function promiseRace(iterable) {\n  return new Promise((resolve, reject) => {\n    for (const item of iterable) {\n      Promise.resolve(item).then(resolve, reject)\n    }\n  })\n}"
   }
 }

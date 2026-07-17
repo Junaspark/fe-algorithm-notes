@@ -14,7 +14,7 @@
   },
   "publicTests": [
     {
-      "name": "匹配文档化输出",
+      "name": "匹配文档化完整输出顺序",
       "args": [],
       "expected": "1 → 5 → 2 → 4 → 3",
       "timeoutMs": 1000
@@ -22,13 +22,7 @@
   ],
   "hiddenTests": [],
   "legacy": {
-    "id": 15,
-    "title": "Event Loop 03：微任务嵌套",
-    "category": "Event Loop",
     "status": "已通过",
-    "difficulty": "中等",
-    "summary": "微任务执行中产生的新微任务追加到队尾，不会插队。",
-    "code": "console.log(1)\n\nPromise.resolve().then(() => {\n  console.log(2)\n\n  Promise.resolve().then(() => {\n    console.log(3)\n  })\n})\n\nPromise.resolve().then(() => {\n  console.log(4)\n})\n\nconsole.log(5)",
     "complexity": "考察执行顺序，不涉及传统算法复杂度",
     "mistakes": [
       "正确输出：1 → 5 → 2 → 4 → 3"
@@ -36,6 +30,12 @@
     "questions": [
       "请按同步任务、微任务、宏任务列出入队过程。"
     ],
+    "id": 15,
+    "title": "Event Loop 03：微任务嵌套",
+    "category": "Event Loop",
+    "difficulty": "中等",
+    "summary": "微任务执行中产生的新微任务追加到队尾，不会插队。",
+    "code": "console.log(1)\n\nPromise.resolve().then(() => {\n  console.log(2)\n\n  Promise.resolve().then(() => {\n    console.log(3)\n  })\n})\n\nPromise.resolve().then(() => {\n  console.log(4)\n})\n\nconsole.log(5)",
     "answer": "1 → 5 → 2 → 4 → 3"
   }
 }

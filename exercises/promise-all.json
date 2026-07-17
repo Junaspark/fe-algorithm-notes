@@ -14,39 +14,16 @@
   },
   "publicTests": [
     {
-      "name": "保持输入顺序",
-      "args": [
-        [
-          1,
-          2,
-          3
-        ]
-      ],
-      "expected": [
-        1,
-        2,
-        3
-      ],
-      "timeoutMs": 1000
-    },
-    {
-      "name": "空可迭代对象",
-      "args": [
-        []
-      ],
-      "expected": [],
-      "timeoutMs": 1000
+      "name": "通过规范行为场景",
+      "args": [],
+      "expected": true,
+      "scenario": "promise-all",
+      "timeoutMs": 3000
     }
   ],
   "hiddenTests": [],
   "legacy": {
-    "id": 7,
-    "title": "Promise.all",
-    "category": "Promise",
     "status": "已通过",
-    "difficulty": "中等",
-    "summary": "保持输入顺序；全部成功后 resolve；任一失败立即 reject。",
-    "code": "function promiseAll(iterable) {\n  return new Promise((resolve, reject) => {\n    const promises = Array.from(iterable)\n\n    if (promises.length === 0) {\n      resolve([])\n      return\n    }\n\n    const result = []\n    let fulfilledCount = 0\n\n    promises.forEach((item, index) => {\n      Promise.resolve(item).then(value => {\n        result[index] = value\n        fulfilledCount++\n\n        if (fulfilledCount === promises.length) {\n          resolve(result)\n        }\n      }, reject)\n    })\n  })\n}",
     "complexity": "时间 O(n)，空间 O(n)",
     "mistakes": [
       "结果必须按输入顺序保存，而不是完成顺序。"
@@ -54,6 +31,12 @@
     "questions": [
       "为什么需要 Promise.resolve？",
       "Promise.all([]) 的结果是什么？"
-    ]
+    ],
+    "id": 7,
+    "title": "Promise.all",
+    "category": "Promise",
+    "difficulty": "中等",
+    "summary": "保持输入顺序；全部成功后 resolve；任一失败立即 reject。",
+    "code": "function promiseAll(iterable) {\n  return new Promise((resolve, reject) => {\n    const promises = Array.from(iterable)\n\n    if (promises.length === 0) {\n      resolve([])\n      return\n    }\n\n    const result = []\n    let fulfilledCount = 0\n\n    promises.forEach((item, index) => {\n      Promise.resolve(item).then(value => {\n        result[index] = value\n        fulfilledCount++\n\n        if (fulfilledCount === promises.length) {\n          resolve(result)\n        }\n      }, reject)\n    })\n  })\n}"
   }
 }

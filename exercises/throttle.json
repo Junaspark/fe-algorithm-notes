@@ -10,25 +10,20 @@
   "prompt": "在固定时间窗口内最多执行一次，适合 scroll、mousemove 等高频事件。",
   "starterCode": "function throttle(fn, delay) {\n  let timer = null\n\n  return function (...args) {\n    if (timer) return\n\n    timer = setTimeout(() => {\n      fn.apply(this, args)\n      timer = null\n    }, delay)\n  }\n}",
   "evaluation": {
-    "mode": "function-presence"
+    "mode": "function"
   },
   "publicTests": [
     {
-      "name": "导出可调用实现",
+      "name": "通过规范行为场景",
       "args": [],
       "expected": true,
-      "timeoutMs": 1000
+      "scenario": "throttle",
+      "timeoutMs": 3000
     }
   ],
   "hiddenTests": [],
   "legacy": {
-    "id": 2,
-    "title": "throttle（节流）",
-    "category": "函数工具",
     "status": "已通过",
-    "difficulty": "简单",
-    "summary": "在固定时间窗口内最多执行一次，适合 scroll、mousemove 等高频事件。",
-    "code": "function throttle(fn, delay) {\n  let timer = null\n\n  return function (...args) {\n    if (timer) return\n\n    timer = setTimeout(() => {\n      fn.apply(this, args)\n      timer = null\n    }, delay)\n  }\n}",
     "complexity": "单次调用时间 O(1)，额外空间 O(1)",
     "mistakes": [
       "定时器版需要在回调执行后将 timer 重置。"
@@ -36,6 +31,12 @@
     "questions": [
       "时间戳版与定时器版有什么区别？",
       "如何支持 leading 和 trailing 配置？"
-    ]
+    ],
+    "id": 2,
+    "title": "throttle（节流）",
+    "category": "函数工具",
+    "difficulty": "简单",
+    "summary": "在固定时间窗口内最多执行一次，适合 scroll、mousemove 等高频事件。",
+    "code": "function throttle(fn, delay) {\n  let timer = null\n\n  return function (...args) {\n    if (timer) return\n\n    timer = setTimeout(() => {\n      fn.apply(this, args)\n      timer = null\n    }, delay)\n  }\n}"
   }
 }

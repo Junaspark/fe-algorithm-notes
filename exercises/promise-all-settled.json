@@ -14,35 +14,16 @@
   },
   "publicTests": [
     {
-      "name": "记录每个结果",
-      "args": [
-        [
-          1,
-          2
-        ]
-      ],
-      "expected": [
-        {
-          "status": "fulfilled",
-          "value": 1
-        },
-        {
-          "status": "fulfilled",
-          "value": 2
-        }
-      ],
-      "timeoutMs": 1000
+      "name": "通过规范行为场景",
+      "args": [],
+      "expected": true,
+      "scenario": "promise-all-settled",
+      "timeoutMs": 3000
     }
   ],
   "hiddenTests": [],
   "legacy": {
-    "id": 9,
-    "title": "Promise.allSettled",
-    "category": "Promise",
     "status": "修正后通过",
-    "difficulty": "中等",
-    "summary": "等待所有成员 settled，并按输入顺序返回每个成员的状态和结果。",
-    "code": "function promiseAllSettled(iterable) {\n  return new Promise(resolve => {\n    const promises = Array.from(iterable)\n\n    if (promises.length === 0) {\n      resolve([])\n      return\n    }\n\n    const result = []\n    let settledCount = 0\n\n    const checkDone = () => {\n      settledCount++\n      if (settledCount === promises.length) {\n        resolve(result)\n      }\n    }\n\n    promises.forEach((item, index) => {\n      Promise.resolve(item).then(\n        value => {\n          result[index] = { status: 'fulfilled', value }\n          checkDone()\n        },\n        reason => {\n          result[index] = { status: 'rejected', reason }\n          checkDone()\n        }\n      )\n    })\n  })\n}",
     "complexity": "时间 O(n)，空间 O(n)",
     "mistakes": [
       "曾遗漏空 iterable；allSettled([]) 应 resolve([])。"
@@ -50,6 +31,12 @@
     "questions": [
       "为什么不能遇到 reject 就提前结束？",
       "与 Promise.all 的使用场景有何不同？"
-    ]
+    ],
+    "id": 9,
+    "title": "Promise.allSettled",
+    "category": "Promise",
+    "difficulty": "中等",
+    "summary": "等待所有成员 settled，并按输入顺序返回每个成员的状态和结果。",
+    "code": "function promiseAllSettled(iterable) {\n  return new Promise(resolve => {\n    const promises = Array.from(iterable)\n\n    if (promises.length === 0) {\n      resolve([])\n      return\n    }\n\n    const result = []\n    let settledCount = 0\n\n    const checkDone = () => {\n      settledCount++\n      if (settledCount === promises.length) {\n        resolve(result)\n      }\n    }\n\n    promises.forEach((item, index) => {\n      Promise.resolve(item).then(\n        value => {\n          result[index] = { status: 'fulfilled', value }\n          checkDone()\n        },\n        reason => {\n          result[index] = { status: 'rejected', reason }\n          checkDone()\n        }\n      )\n    })\n  })\n}"
   }
 }

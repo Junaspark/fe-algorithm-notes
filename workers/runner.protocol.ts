@@ -5,15 +5,22 @@ export type TestCase = {
   name: string
   args: JsonValue[]
   expected: JsonValue
+  scenario?: AuthoredScenario
   /** Exercise-authored guidance. The runner never invents boundary advice. */
   boundaryHint?: string
 }
+
+export const AUTHORED_SCENARIOS = [
+  'unique-array', 'throttle', 'debounce', 'curry', 'deep-clone', 'event-emitter',
+  'promise-all', 'promise-race', 'promise-all-settled', 'promise-any', 'my-set-interval', 'lru-cache',
+] as const
+export type AuthoredScenario = typeof AUTHORED_SCENARIOS[number]
 
 export type RunRequest = {
   requestId: string
   code: string
   exportName: string
-  evaluationMode?: 'function' | 'function-presence' | 'console-output'
+  evaluationMode?: 'function' | 'console-output'
   tests: TestCase[]
   complexityAssessment?: string
 }
@@ -82,12 +89,13 @@ export function isRunRequestEnvelope(value: unknown): value is RunRequestEnvelop
   return typeof request.requestId === 'string'
     && typeof request.code === 'string'
     && typeof request.exportName === 'string'
-    && (request.evaluationMode === undefined || request.evaluationMode === 'function' || request.evaluationMode === 'function-presence' || request.evaluationMode === 'console-output')
+    && (request.evaluationMode === undefined || request.evaluationMode === 'function' || request.evaluationMode === 'console-output')
     && Array.isArray(request.tests)
     && request.tests.every(test => isRecord(test)
       && typeof test.name === 'string'
       && Array.isArray(test.args)
       && 'expected' in test
+      && (test.scenario === undefined || AUTHORED_SCENARIOS.includes(test.scenario as AuthoredScenario))
       && (test.boundaryHint === undefined || typeof test.boundaryHint === 'string'))
     && (request.complexityAssessment === undefined || typeof request.complexityAssessment === 'string')
 }

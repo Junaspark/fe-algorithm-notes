@@ -10,25 +10,20 @@
   "prompt": "使用 Map 的插入顺序维护最近使用关系；访问后删除并重新插入。",
   "starterCode": "class LRUCache {\n  constructor(capacity) {\n    this.cap = capacity\n    this.cache = new Map()\n  }\n\n  get(key) {\n    if (!this.cache.has(key)) return -1\n\n    const value = this.cache.get(key)\n    this.cache.delete(key)\n    this.cache.set(key, value)\n    return value\n  }\n\n  put(key, value) {\n    if (this.cache.has(key)) {\n      this.cache.delete(key)\n    } else if (this.cache.size >= this.cap) {\n      const oldestKey = this.cache.keys().next().value\n      this.cache.delete(oldestKey)\n    }\n\n    this.cache.set(key, value)\n  }\n}",
   "evaluation": {
-    "mode": "function-presence"
+    "mode": "function"
   },
   "publicTests": [
     {
-      "name": "导出可调用实现",
+      "name": "通过规范行为场景",
       "args": [],
       "expected": true,
-      "timeoutMs": 1000
+      "scenario": "lru-cache",
+      "timeoutMs": 3000
     }
   ],
   "hiddenTests": [],
   "legacy": {
-    "id": 12,
-    "title": "LRU Cache",
-    "category": "数据结构",
     "status": "一次通过",
-    "difficulty": "中等",
-    "summary": "使用 Map 的插入顺序维护最近使用关系；访问后删除并重新插入。",
-    "code": "class LRUCache {\n  constructor(capacity) {\n    this.cap = capacity\n    this.cache = new Map()\n  }\n\n  get(key) {\n    if (!this.cache.has(key)) return -1\n\n    const value = this.cache.get(key)\n    this.cache.delete(key)\n    this.cache.set(key, value)\n    return value\n  }\n\n  put(key, value) {\n    if (this.cache.has(key)) {\n      this.cache.delete(key)\n    } else if (this.cache.size >= this.cap) {\n      const oldestKey = this.cache.keys().next().value\n      this.cache.delete(oldestKey)\n    }\n\n    this.cache.set(key, value)\n  }\n}",
     "complexity": "平均 get O(1)，put O(1)，空间 O(capacity)",
     "mistakes": [
       "生产级实现需明确 capacity <= 0 的行为。"
@@ -36,6 +31,12 @@
     "questions": [
       "不用 Map 如何用哈希表和双向链表实现？",
       "为什么普通数组无法满足 O(1)？"
-    ]
+    ],
+    "id": 12,
+    "title": "LRU Cache",
+    "category": "数据结构",
+    "difficulty": "中等",
+    "summary": "使用 Map 的插入顺序维护最近使用关系；访问后删除并重新插入。",
+    "code": "class LRUCache {\n  constructor(capacity) {\n    this.cap = capacity\n    this.cache = new Map()\n  }\n\n  get(key) {\n    if (!this.cache.has(key)) return -1\n\n    const value = this.cache.get(key)\n    this.cache.delete(key)\n    this.cache.set(key, value)\n    return value\n  }\n\n  put(key, value) {\n    if (this.cache.has(key)) {\n      this.cache.delete(key)\n    } else if (this.cache.size >= this.cap) {\n      const oldestKey = this.cache.keys().next().value\n      this.cache.delete(oldestKey)\n    }\n\n    this.cache.set(key, value)\n  }\n}"
   }
 }

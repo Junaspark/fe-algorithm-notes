@@ -8,7 +8,7 @@ import RuleFeedback from './RuleFeedback'
 import TestResults from './TestResults'
 import { flushDraftQueue, queueDraft, removeQueuedDraft, type DraftSendResult, type QueuedDraft } from './offline-drafts'
 
-type Exercise = { id: string; title: string; kind: 'algorithm' | 'frontend'; difficulty: 'easy' | 'medium' | 'hard'; prompt: string; starterCode: string; exportName: string; evaluationMode?: 'function' | 'function-presence' | 'console-output'; publicTests: TestCase[]; fullTests: TestCase[] }
+type Exercise = { id: string; title: string; kind: 'algorithm' | 'frontend'; difficulty: 'easy' | 'medium' | 'hard'; prompt: string; starterCode: string; exportName: string; evaluationMode?: 'function' | 'console-output'; publicTests: TestCase[]; fullTests: TestCase[] }
 type Props = { exercise: Exercise; userId: string; initialDraft: { code: string; version: number } }
 type Tab = 'problem' | 'code' | 'results'
 

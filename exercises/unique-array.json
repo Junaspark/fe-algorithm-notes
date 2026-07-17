@@ -14,41 +14,16 @@
   },
   "publicTests": [
     {
-      "name": "去重并保留首次顺序",
-      "args": [
-        [
-          1,
-          1,
-          2,
-          3,
-          2
-        ]
-      ],
-      "expected": [
-        1,
-        2,
-        3
-      ],
-      "timeoutMs": 1000
-    },
-    {
-      "name": "空数组",
-      "args": [
-        []
-      ],
-      "expected": [],
-      "timeoutMs": 1000
+      "name": "通过规范行为场景",
+      "args": [],
+      "expected": true,
+      "scenario": "unique-array",
+      "timeoutMs": 3000
     }
   ],
   "hiddenTests": [],
   "legacy": {
-    "id": 1,
-    "title": "数组去重（uniqueArray）",
-    "category": "数组",
     "status": "已通过",
-    "difficulty": "简单",
-    "summary": "使用 Set 利用唯一值特性完成数组去重。",
-    "code": "const uniqueArray = arr => [...new Set(arr)]",
     "complexity": "时间 O(n)，空间 O(n)",
     "mistakes": [
       "需要根据题意确认是否保留首次出现顺序。"
@@ -56,6 +31,12 @@
     "questions": [
       "Set 为什么能保持当前实现的元素顺序？",
       "不用 Set 还能如何实现？"
-    ]
+    ],
+    "id": 1,
+    "title": "数组去重（uniqueArray）",
+    "category": "数组",
+    "difficulty": "简单",
+    "summary": "使用 Set 利用唯一值特性完成数组去重。",
+    "code": "const uniqueArray = arr => [...new Set(arr)]"
   }
 }

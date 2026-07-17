@@ -78,6 +78,27 @@ describe('browser worker runner', () => {
   })
 
   it.each([
+    ['curry', 'function curry(fn) { return (...args) => fn(...args) }'],
+    ['debounce', 'function debounce(fn) { return fn }'],
+    ['throttle', 'function throttle(fn) { return fn }'],
+    ['event-emitter', 'class EventEmitter {}'],
+    ['lru-cache', 'class LRUCache { get() { return -1 } put() {} }'],
+    ['my-set-interval', 'function mySetInterval() { return { cancel() {} } }'],
+    ['promise-any', 'function promiseAny() { return Promise.resolve("wrong") }'],
+  ] as const)('executes the trusted %s authored scenario and rejects a wrong implementation', async (scenario, code) => {
+    setRunnerWorkerFactory(() => new WorkerHarness())
+    const exportName = scenario === 'event-emitter' ? 'EventEmitter'
+      : scenario === 'lru-cache' ? 'LRUCache'
+        : scenario === 'my-set-interval' ? 'mySetInterval'
+          : scenario === 'promise-any' ? 'promiseAny' : scenario
+    const result = await runTests(request({
+      code, exportName,
+      tests: [{ name: `${scenario} behavior`, args: [], expected: true, scenario }],
+    }), 2_000)
+    expect(result.tests[0].status).not.toBe('passed')
+  })
+
+  it.each([
     ['syntax errors', 'function add( {', 'SyntaxError'],
     ['thrown errors', 'function add() { throw new Error("boom") }', 'boom'],
     ['rejected promises', 'async function add() { throw new Error("nope") }', 'nope'],

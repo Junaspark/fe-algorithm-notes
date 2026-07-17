@@ -11,7 +11,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "seed": "tsx scripts/seed.ts",
-    "migration:compare": "node scripts/compare-legacy-migration.mjs"
+    "migration:compare": "node --import tsx scripts/compare-legacy-migration.ts",
+    "migration:run": "node --import tsx scripts/migrate-legacy-data.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "1.11.2",

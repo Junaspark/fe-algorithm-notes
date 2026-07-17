@@ -4,6 +4,7 @@ import {
   isRunRequestEnvelope,
   normalizeJsonValue,
   type JsonValue,
+  type AuthoredScenario,
   type RunRequest,
   type RunResult,
   type RunResultEnvelope,
@@ -15,6 +16,61 @@ const disabledMessage = 'disabled in the exercise runner'
 
 function blocked(name: string): never {
   throw new Error(`${name} is ${disabledMessage}`)
+}
+
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+async function runAuthoredScenario(scenario: AuthoredScenario, implementation: (...args: unknown[]) => unknown): Promise<boolean> {
+  switch (scenario) {
+    case 'unique-array': return valuesEqual(normalizeJsonValue(implementation([1, 1, 2, 3, 2]) as unknown), [1, 2, 3])
+    case 'deep-clone': {
+      const source = { nested: { value: 1 } }
+      const clone = implementation(source) as typeof source
+      return clone !== source && clone.nested !== source.nested && clone.nested.value === 1
+    }
+    case 'curry': {
+      const curried = implementation((a: number, b: number, c: number) => a + b + c) as (...args: number[]) => unknown
+      const one = curried(1) as (...args: number[]) => unknown
+      const oneTwo = one(2) as (...args: number[]) => unknown
+      const grouped = curried(1, 2) as (...args: number[]) => unknown
+      return oneTwo(3) === 6 && grouped(3) === 6 && curried(1, 2, 3) === 6
+    }
+    case 'debounce': {
+      const calls: Array<[unknown, number]> = []
+      const receiver = { value: 7, invoke: implementation(function (this: unknown, value: number) { calls.push([this, value]) }, 20) as (value: number) => void }
+      receiver.invoke(1); receiver.invoke(2); await wait(35)
+      return calls.length === 1 && calls[0][0] === receiver && calls[0][1] === 2
+    }
+    case 'throttle': {
+      const calls: number[] = []; const invoke = implementation((value: number) => calls.push(value), 20) as (value: number) => void
+      invoke(1); invoke(2); await wait(30); invoke(3); await wait(30)
+      return valuesEqual(calls, [1, 3]) || valuesEqual(calls, [2, 3])
+    }
+    case 'event-emitter': {
+      type Emitter = { on: (type: string, fn: (value: number) => void) => Emitter; off: (type: string, fn: (value: number) => void) => Emitter; emit: (type: string, value: number) => Emitter }
+      const emitter = new (implementation as unknown as new () => Emitter)(); const calls: number[] = []
+      const first = (value: number) => { calls.push(value); emitter.off('tick', first) }; const second = (value: number) => calls.push(value * 10)
+      const chained = emitter.on('tick', first).on('tick', second); emitter.emit('tick', 2).emit('tick', 3)
+      return chained === emitter && valuesEqual(calls, [2, 20, 30])
+    }
+    case 'lru-cache': {
+      const Cache = implementation as unknown as new (capacity: number) => { put: (key: string, value: number) => void; get: (key: string) => number }; const cache = new Cache(2)
+      cache.put('a', 1); cache.put('b', 2); if (cache.get('a') !== 1) return false; cache.put('c', 3)
+      return cache.get('b') === -1 && cache.get('a') === 1 && cache.get('c') === 3
+    }
+    case 'my-set-interval': {
+      let calls = 0; const handle = implementation(() => { calls++ }, 15) as { cancel: () => void }
+      await wait(42); handle.cancel(); const atCancel = calls; await wait(30)
+      return atCancel >= 2 && calls === atCancel
+    }
+    case 'promise-any': {
+      const result = await implementation([Promise.reject('first'), Promise.resolve('winner')]); if (result !== 'winner') return false
+      try { await implementation([Promise.reject('a'), Promise.reject('b')]); return false } catch (error) { return error instanceof AggregateError && valuesEqual(normalizeJsonValue(error.errors), ['a', 'b']) }
+    }
+    case 'promise-all': return valuesEqual(normalizeJsonValue(await implementation([Promise.resolve(1), 2])), [1, 2])
+    case 'promise-race': return await implementation([Promise.resolve('first'), Promise.resolve('second')]) === 'first'
+    case 'promise-all-settled': return valuesEqual(normalizeJsonValue(await implementation([Promise.resolve(1), Promise.reject('bad')])), [{ status: 'fulfilled', value: 1 }, { status: 'rejected', reason: 'bad' }])
+  }
 }
 
 function blockedFunction(name: string) {
@@ -129,15 +185,13 @@ export async function executeRun(request: RunRequest): Promise<RunResult> {
     return evaluationErrorResult(request, startedAt, logs, error)
   }
 
-  if (request.evaluationMode === 'function-presence') {
-    return { requestId: request.requestId, logs, durationMs: Math.round(performance.now() - startedAt), tests: request.tests.map(test => ({ name: test.name, status: test.expected === true ? 'passed' : 'failed', durationMs: 0, expected: test.expected, actual: true })) }
-  }
-
   const tests: TestResult[] = []
   for (const test of request.tests) {
     const testStartedAt = performance.now()
     try {
-      const actual = normalizeJsonValue(await submittedFunction(...test.args), `result.${test.name}`)
+      const actual = test.scenario
+        ? await runAuthoredScenario(test.scenario, submittedFunction as (...args: unknown[]) => unknown)
+        : normalizeJsonValue(await submittedFunction(...test.args), `result.${test.name}`)
       tests.push({
         name: test.name,
         status: valuesEqual(actual, test.expected) ? 'passed' : 'failed',

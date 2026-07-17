@@ -30,4 +30,19 @@ describe('ExerciseSchema', () => {
 
     expect(exercise.legacy).toMatchObject({ summary: '使用 Set', code: expect.any(String) })
   })
+
+  it('accepts only the closed set of authored behavior scenarios', () => {
+    const base = {
+      name: 'curry behavior', args: [], expected: true, scenario: 'curry' as const,
+    }
+    const exercise = {
+      id: 'curry', title: 'curry', kind: 'frontend' as const, difficulty: 'medium' as const,
+      language: 'javascript' as const, topics: ['function'], prompt: 'implement', starterCode: '',
+      evaluation: { mode: 'function' as const }, publicTests: [base], hiddenTests: [],
+    }
+    expect(ExerciseSchema.safeParse(exercise).success).toBe(true)
+    expect(ExerciseSchema.safeParse({ ...exercise, publicTests: [{ ...base, scenario: 'run-arbitrary-code' }] }).success).toBe(false)
+    expect(ExerciseSchema.safeParse({ ...exercise, surprise: true }).success).toBe(false)
+    expect(ExerciseSchema.safeParse({ ...exercise, publicTests: [{ ...base, injected: true }] }).success).toBe(false)
+  })
 })

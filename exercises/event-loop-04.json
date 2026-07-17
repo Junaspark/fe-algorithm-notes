@@ -14,7 +14,7 @@
   },
   "publicTests": [
     {
-      "name": "匹配文档化输出",
+      "name": "匹配文档化完整输出顺序",
       "args": [],
       "expected": "script start → async1 start → async2 → script end → async1 end → promise",
       "timeoutMs": 1000
@@ -22,13 +22,7 @@
   ],
   "hiddenTests": [],
   "legacy": {
-    "id": 16,
-    "title": "Event Loop 04：async / await",
-    "category": "Event Loop",
     "status": "已通过",
-    "difficulty": "中等",
-    "summary": "await 后续作为微任务恢复；本题中它比显式 then 更早入队。",
-    "code": "async function async1() {\n  console.log('async1 start')\n  await async2()\n  console.log('async1 end')\n}\n\nasync function async2() {\n  console.log('async2')\n}\n\nconsole.log('script start')\nasync1()\n\nPromise.resolve().then(() => {\n  console.log('promise')\n})\n\nconsole.log('script end')",
     "complexity": "考察执行顺序，不涉及传统算法复杂度",
     "mistakes": [
       "正确输出：script start → async1 start → async2 → script end → async1 end → promise"
@@ -36,6 +30,12 @@
     "questions": [
       "请按同步任务、微任务、宏任务列出入队过程。"
     ],
+    "id": 16,
+    "title": "Event Loop 04：async / await",
+    "category": "Event Loop",
+    "difficulty": "中等",
+    "summary": "await 后续作为微任务恢复；本题中它比显式 then 更早入队。",
+    "code": "async function async1() {\n  console.log('async1 start')\n  await async2()\n  console.log('async1 end')\n}\n\nasync function async2() {\n  console.log('async2')\n}\n\nconsole.log('script start')\nasync1()\n\nPromise.resolve().then(() => {\n  console.log('promise')\n})\n\nconsole.log('script end')",
     "answer": "script start → async1 start → async2 → script end → async1 end → promise"
   }
 }

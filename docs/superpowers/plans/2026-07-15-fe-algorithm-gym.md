@@ -653,3 +653,11 @@ Before enabling real schedules or direct-to-main writes:
 4. Install the PWA on one phone and complete both exercise types using touch only.
 5. Run with `AGENT_ADAPTER=mock`, then enable the Codex bridge and compare both results against `agent-job.v1`.
 6. Create an incomplete plan, advance the clock across 09:30 and 20:00, and prove no new plan appears.
+
+## Task 9 migration and exercise hardening report (2026-07-17)
+
+- Replaced every `function-presence` assertion with a closed, schema-validated authored scenario; learner input cannot provide executable test code.
+- Added real Worker readiness coverage for all 19 canonical exercises: each migrated starter passes and a deliberately wrong implementation fails.
+- Rebuilt migration as destination-parameterized library functions. Staging is schema/readiness validated before an atomic swap, with restoration and cleanup for absent destinations, stale backups, and failures before or after the swap.
+- The comparator verifies schema validity, unique canonical IDs, exact stable slug mapping, and normalized deep equality of code, status, complexity, mistakes, and questions.
+- Verification evidence: 169 Vitest tests, TypeScript, ESLint, migration comparison, production build (with build-time test environment), and the three real-browser Worker tests passed.

@@ -10,25 +10,20 @@
   "prompt": "连续触发时不断重置定时器，只在最后一次触发后的延迟时间到达时执行。",
   "starterCode": "function debounce(fn, delay) {\n  let timer\n\n  return function (...args) {\n    clearTimeout(timer)\n\n    timer = setTimeout(() => {\n      fn.apply(this, args)\n    }, delay)\n  }\n}",
   "evaluation": {
-    "mode": "function-presence"
+    "mode": "function"
   },
   "publicTests": [
     {
-      "name": "导出可调用实现",
+      "name": "通过规范行为场景",
       "args": [],
       "expected": true,
-      "timeoutMs": 1000
+      "scenario": "debounce",
+      "timeoutMs": 3000
     }
   ],
   "hiddenTests": [],
   "legacy": {
-    "id": 3,
-    "title": "debounce（防抖）",
-    "category": "函数工具",
     "status": "修正后通过",
-    "difficulty": "简单",
-    "summary": "连续触发时不断重置定时器，只在最后一次触发后的延迟时间到达时执行。",
-    "code": "function debounce(fn, delay) {\n  let timer\n\n  return function (...args) {\n    clearTimeout(timer)\n\n    timer = setTimeout(() => {\n      fn.apply(this, args)\n    }, delay)\n  }\n}",
     "complexity": "单次调用时间 O(1)，额外空间 O(1)",
     "mistakes": [
       "返回箭头函数会捕获定义处 this，无法取得调用对象。"
@@ -36,6 +31,12 @@
     "questions": [
       "为什么这里必须返回普通函数？",
       "如何增加立即执行和 cancel 功能？"
-    ]
+    ],
+    "id": 3,
+    "title": "debounce（防抖）",
+    "category": "函数工具",
+    "difficulty": "简单",
+    "summary": "连续触发时不断重置定时器，只在最后一次触发后的延迟时间到达时执行。",
+    "code": "function debounce(fn, delay) {\n  let timer\n\n  return function (...args) {\n    clearTimeout(timer)\n\n    timer = setTimeout(() => {\n      fn.apply(this, args)\n    }, delay)\n  }\n}"
   }
 }
