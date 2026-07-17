@@ -4,6 +4,7 @@ import type { Exercise } from '@/domain/exercises/schema'
 
 export const e2eEnabled = (request?: Request) => {
   if (process.env.E2E_COMPILED !== '1' || process.env.E2E_TEST_MODE !== '1') return false
+  if (process.env.E2E_BIND_HOST !== '127.0.0.1' || (process.env.E2E_ACCESS_SECRET ?? '').length < 32) return false
   if (!request) return true
   const url = new URL(request.url); const secret = process.env.E2E_ACCESS_SECRET ?? ''
   return (url.hostname === '127.0.0.1' || url.hostname === 'localhost') && secret.length >= 32 && request.headers.get('x-e2e-secret') === secret

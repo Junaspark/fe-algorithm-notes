@@ -8,7 +8,7 @@ import { selectNextPendingReview } from '@/domain/reviews/schedule'
 export default async function MistakesPage() {
   const session = await auth(); const userId = session?.user?.id
   if (!userId) return null
-  if (process.env.E2E_COMPILED === '1' && process.env.E2E_TEST_MODE === '1') { const state = (await import('@/domain/e2e/state')).getE2EState(); return <main className="workbench-page"><h1>错题本</h1><p>{state.mistakeNote ?? '暂无 Agent 建议'}</p></main> }
+  if ((await import('@/domain/e2e/state')).e2eEnabled()) { const state = (await import('@/domain/e2e/state')).getE2EState(); return <main className="workbench-page"><h1>错题本</h1><p>{state.mistakeNote ?? '暂无 Agent 建议'}</p></main> }
   const [exerciseRows, reviewRows, submissionRows] = await Promise.all([
     db.select().from(exercises),
     db.select().from(reviews).where(eq(reviews.userId, userId)).orderBy(desc(reviews.dueAt)),

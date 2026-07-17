@@ -7,7 +7,7 @@ import { dailyPlans, exercises, planItems } from '@/db/schema'
 export default async function TodayPage() {
   const session = await auth(); const userId = session?.user?.id
   if (!userId) return null
-  if (process.env.E2E_COMPILED === '1' && process.env.E2E_TEST_MODE === '1') {
+  if ((await import('@/domain/e2e/state')).e2eEnabled()) {
     const state = (await import('@/domain/e2e/state')).getE2EState(); const plan = state.plan
     if (!plan) return <main className="today-empty"><p className="exercise-kind">TODAY</p><h1>今日题目正在准备</h1><p>09:30 会生成一道算法题和一道前端题。</p></main>
     return <main className="today-page"><h1>今日练习</h1>{plan.items.map(item => <Link key={item.exerciseId} href={`/practice/${item.exerciseId}`}>{state.exercises.find(x => x.id === item.exerciseId)?.content.title}</Link>)}</main>

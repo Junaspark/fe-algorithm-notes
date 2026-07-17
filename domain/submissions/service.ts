@@ -19,18 +19,20 @@ export function createPassingSubmissionPersistence<TQuery extends PgQueryResultH
       const secret = process.env.EXECUTION_ATTESTATION_SECRET
       if (!secret) throw new Error('EXECUTION_ATTESTATION_SECRET_MISSING')
       const attestation = await verifyExecutionAttestation(input.evidence.attestation, { userId: input.userId, exerciseId: input.exerciseId, code: input.code, suiteVersion }, { secret })
+
+      const [prior] = await tx.select().from(schema.submissions).where(and(eq(schema.submissions.userId, input.userId), eq(schema.submissions.exerciseId, input.exerciseId), eq(schema.submissions.requestId, input.evidence.requestId))).limit(1)
+      if (prior) {
+        if (prior.code !== input.code || prior.status !== 'passed' || prior.testResult.passed !== input.evidence.tests.length || prior.testResult.failed !== 0) throw new Error('SUBMISSION_IDEMPOTENCY_MISMATCH')
+        const [state] = await tx.select({ status: schema.dailyPlans.status }).from(schema.planItems).innerJoin(schema.dailyPlans, eq(schema.planItems.planId, schema.dailyPlans.id)).where(eq(schema.planItems.submissionId, prior.id)).limit(1)
+        return { submissionId: prior.id, completed: true, planCompleted: state?.status === 'completed' }
+      }
+
       const consumed = await tx.update(schema.executionAttestations).set({ consumedAt: new Date() }).where(and(
         eq(schema.executionAttestations.nonce, attestation.nonce), eq(schema.executionAttestations.userId, input.userId),
         eq(schema.executionAttestations.exerciseId, input.exerciseId), eq(schema.executionAttestations.codeHash, await normalizedCodeHash(input.code)),
         eq(schema.executionAttestations.suiteVersion, suiteVersion), isNull(schema.executionAttestations.consumedAt), gt(schema.executionAttestations.expiresAt, new Date()),
       )).returning({ nonce: schema.executionAttestations.nonce })
       if (consumed.length !== 1) throw new Error('EXECUTION_ATTESTATION_REPLAYED_OR_EXPIRED')
-
-      const [prior] = await tx.select().from(schema.submissions).where(and(eq(schema.submissions.userId, input.userId), eq(schema.submissions.exerciseId, input.exerciseId), eq(schema.submissions.requestId, input.evidence.requestId))).limit(1)
-      if (prior) {
-        const [state] = await tx.select({ status: schema.dailyPlans.status }).from(schema.planItems).innerJoin(schema.dailyPlans, eq(schema.planItems.planId, schema.dailyPlans.id)).where(eq(schema.planItems.submissionId, prior.id)).limit(1)
-        return { submissionId: prior.id, completed: true, planCompleted: state?.status === 'completed' }
-      }
 
       const [plan] = await tx.select().from(schema.dailyPlans).where(and(eq(schema.dailyPlans.userId, input.userId), eq(schema.dailyPlans.status, 'active'))).for('update').limit(1)
       if (!plan) {

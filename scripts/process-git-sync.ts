@@ -59,7 +59,7 @@ export async function createDrizzleGitSyncJobStore() {
   const branch = process.env.GITHUB_SYNC_BRANCH ?? 'main'
   const github = new Octokit({ auth: requiredEnv('GITHUB_SYNC_TOKEN') })
 
-  const jobs = createGitSyncJobStore({ db, schema, github, owner, repo })
+  const jobs = createGitSyncJobStore({ db, schema, github, owner, repo, branch })
   return { jobs, repository: new GitHubRepository({ github, owner, repo, branch }), buildManifest: buildExportManifest }
 }
 

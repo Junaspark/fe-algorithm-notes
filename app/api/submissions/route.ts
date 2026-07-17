@@ -42,7 +42,7 @@ export function createSubmissionRoute(deps: Dependencies) {
 }
 
 export const POST = async (request: Request) => {
-  if (process.env.E2E_COMPILED === '1' && process.env.E2E_TEST_MODE === '1') {
+  if ((await import('@/domain/e2e/state')).e2eEnabled()) {
     const { getE2EState } = await import('@/domain/e2e/state'); const state = getE2EState()
     return createSubmissionRoute({ authenticate: async () => ({ user: { id: '00000000-0000-4000-8000-000000000001' } }), submit: async input => {
       const { verifyExecutionAttestation } = await import('@/domain/submissions/execution-attestation')

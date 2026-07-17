@@ -10,7 +10,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
   const session = await auth()
   const userId = session?.user?.id
   if (!userId) return null
-  const e2e = process.env.E2E_COMPILED === '1' && process.env.E2E_TEST_MODE === '1'
+  const e2e = (await import('@/domain/e2e/state')).e2eEnabled()
   const [search, rows, submissionRows, reviewRows] = e2e ? [await searchParams, (await import('@/domain/e2e/state')).getE2EState().exercises.map(x => ({ ...x, version: 1, createdAt: new Date(), updatedAt: new Date() })), [], []] as never : await Promise.all([
     searchParams,
     db.select().from(exercises),

@@ -38,11 +38,11 @@ Serve every route and worker over HTTPS. Install the PWA on a phone and complete
 
 Use `GITHUB_SYNC_BRANCH=validation/promotion` to inspect the exact export tree. Confirm only `exercises/`, `solutions/`, and `reports/` change, then set `GITHUB_SYNC_BRANCH=main` (the runtime default). A remote SHA change must pause the job rather than overwrite it. No real schedule or direct-to-main write is enabled by CI.
 
-## Submission execution threat model
+## Submission execution receipt and trust model
 
-Untrusted solution code continues to run only in the browser Worker. After the complete authored suite passes, the client requests a two-minute HMAC attestation bound to authenticated user, exercise/plan item, normalized code SHA-256, exercise suite version, passing result, and random nonce. Submission verifies the signature and consumes the persisted nonce in the same database transaction that completes the item and enqueues exports. Forged, altered, expired, replayed, or raw submission payloads cannot complete or export.
+Untrusted solution code continues to run only in the browser Worker; that real Worker run is the functional-correctness mechanism. After the complete authored suite passes, the client requests a two-minute execution receipt bound to authenticated user, exercise/plan item, normalized code SHA-256, exercise suite version, reported passing result, and random nonce. Submission verifies the receipt integrity and consumes its persisted nonce in the same transaction that completes the item and enqueues exports. This prevents accidental payload mismatch and makes lost-response retries idempotent; it is not independent cryptographic proof that Worker execution occurred.
 
-This is a single-owner application: the attestation protects request integrity and accidental/replayed payload tampering. It does not claim to defeat the owner deliberately modifying their browser or fabricating a result at the authenticated attestation boundary. Server-side execution remains intentionally forbidden.
+This direct-to-main design assumes the GitHub-allowlisted `Junaspark` session is the trusted owner. It does not defend against that owner deliberately modifying their browser or fabricating a result at the authenticated receipt boundary. Server-side execution remains intentionally forbidden. Production promotion must protect OAuth, receipt, and GitHub credentials and re-confirm the account allowlist before enabling `GITHUB_SYNC_BRANCH=main`.
 
 ## Acceptance boundaries
 

@@ -19,7 +19,7 @@ export function createAttestationRoute(deps: { authenticate(): Promise<{ user?: 
 }
 
 export const POST = async (request: Request) => {
-  if (process.env.E2E_COMPILED === '1' && process.env.E2E_TEST_MODE === '1') {
+  if ((await import('@/domain/e2e/state')).e2eEnabled()) {
     const { getE2EState } = await import('@/domain/e2e/state'); const state = getE2EState()
     return createAttestationRoute({ authenticate: async () => ({ user: { id: '00000000-0000-4000-8000-000000000001' } }), issue: async input => {
       const exercise = state.exercises.find(row => row.id === input.exerciseId); if (!exercise) throw new Error('EXERCISE_NOT_FOUND')

@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/pglite'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { count, eq } from 'drizzle-orm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as schema from '@/db/schema'
 import { createDraftRepository, createPlanRepository } from '@/domain/plans/repository'
@@ -176,8 +176,7 @@ describe('PostgreSQL repositories', () => {
     await expect(persist(await input('a', 'wrong-owner', '00000000-0000-4000-8000-000000000008'))).rejects.toThrow('ACTIVE_PLAN_NOT_FOUND')
     await expect(persist(await input('a', 'run-a'))).resolves.toMatchObject({ planCompleted: false })
     const completedInput = await input('b', 'run-b'); const completed = await persist(completedInput)
-    await expect(persist(completedInput)).rejects.toThrow('EXECUTION_ATTESTATION_REPLAYED_OR_EXPIRED')
-    const replay = completed
+    const replay = await persist(completedInput)
 
     expect(replay.submissionId).toBe(completed.submissionId)
     expect(replay.planCompleted).toBe(true)
@@ -238,7 +237,6 @@ describe('PostgreSQL repositories', () => {
     ])
 
     expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1)
-    expect(results.filter(result => result.status === 'rejected').map(result => (result as PromiseRejectedResult).reason.message)).toEqual(['EXECUTION_ATTESTATION_REPLAYED_OR_EXPIRED'])
     expect(await db.select().from(schema.submissions).where(eq(schema.submissions.requestId, 'run-final'))).toHaveLength(1)
     expect(await db.select().from(schema.gitSyncJobs)).toHaveLength(1)
     expect(await db.select().from(schema.agentJobs)).toHaveLength(1)
@@ -359,14 +357,14 @@ describe('PostgreSQL repositories', () => {
     ]).returning()
     await db.insert(schema.gitSyncJobs).values([
       { planId: plans[0].id, userId, status: 'failed', attempt: 3 },
-      { planId: plans[1].id, userId, status: 'queued', attempt: 1, expectedHeadSha: 'base' },
+      { planId: plans[1].id, userId, status: 'queued', attempt: 1 },
       {
         planId: plans[2].id, userId, status: 'running', attempt: 1, expectedHeadSha: 'base',
         workerId: 'crashed', leaseToken: crypto.randomUUID(), leaseUntil: new Date('2026-07-16T08:00:00Z'),
       },
     ])
-    const github = { git: { getRef: async () => ({ data: { object: { sha: 'base' } } }) } }
-    const store = createGitSyncJobStore({ db, schema, github, owner: 'o', repo: 'r', leaseMs: 60_000 })
+    const github = { git: { getRef: vi.fn(async () => ({ data: { object: { sha: 'base' } } })) } }
+    const store = createGitSyncJobStore({ db, schema, github, owner: 'o', repo: 'r', branch: 'validation/promotion', leaseMs: 60_000 })
     const now = new Date('2026-07-16T09:00:00Z')
     const [first, second] = await Promise.all([
       store.claim('worker-a', 3, now),
@@ -378,6 +376,7 @@ describe('PostgreSQL repositories', () => {
     const rows = await db.select().from(schema.gitSyncJobs)
     expect(rows.find(row => row.planId === plans[0].id)?.status).toBe('dead')
     expect(rows.filter(row => row.status === 'running')).toHaveLength(2)
+    expect(github.git.getRef).toHaveBeenCalledWith({ owner: 'o', repo: 'r', ref: 'heads/validation/promotion' })
     expect(rows.filter(row => row.leaseUntil?.getTime() === now.getTime() + 60_000)).toHaveLength(2)
     await expect(store.recordCommit(first!.id, first!.workerId, crypto.randomUUID(), 'stale')).rejects.toThrow('GIT_SYNC_LEASE_LOST')
     await expect(store.recordCommit(first!.id, first!.workerId, first!.leaseToken, 'expired')).rejects.toThrow('GIT_SYNC_LEASE_LOST')

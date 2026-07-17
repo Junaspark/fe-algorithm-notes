@@ -17,7 +17,7 @@ export default async function PracticePage({ params }: { params: Promise<{ id: s
   const [{ id }, session] = await Promise.all([params, auth()])
   const userId = session?.user?.id
   if (!userId) return null
-  if (process.env.E2E_COMPILED === '1' && process.env.E2E_TEST_MODE === '1') {
+  if ((await import('@/domain/e2e/state')).e2eEnabled()) {
     const state = (await import('@/domain/e2e/state')).getE2EState(); const row = state.exercises.find(x => x.id === id); if (!row) notFound()
     const content = row.content; const publicTests = runnerTests(content.publicTests); const draft = state.drafts[id]
     const exportName = content.starterCode.match(/(?:function|class)\s+([\w$]+)/)?.[1]
