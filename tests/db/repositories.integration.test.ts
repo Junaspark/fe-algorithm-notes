@@ -36,7 +36,7 @@ describe('PostgreSQL repositories', () => {
     db = drizzle(client, { schema })
     const migration = await readFile(path.join(process.cwd(), 'drizzle/0000_silky_juggernaut.sql'), 'utf8')
     await client.exec(migration.replaceAll('--> statement-breakpoint', ''))
-    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql', '0005_git_sync_leases.sql', '0006_submission_duration.sql']) {
+    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql', '0005_git_sync_leases.sql', '0006_submission_duration.sql', '0007_daily_plan_mode.sql']) {
       await client.exec((await readFile(path.join(process.cwd(), 'drizzle', name), 'utf8')).replaceAll('--> statement-breakpoint', ''))
     }
     await db.insert(schema.exercises).values([
@@ -48,6 +48,17 @@ describe('PostgreSQL repositories', () => {
   })
 
   afterEach(async () => client.close())
+
+  it('persists timed mode and counts only completed plans for interview scheduling', async () => {
+    const userId = '00000000-0000-4000-8000-000000000020'
+    await db.insert(schema.dailyPlans).values(Array.from({ length: 7 }, (_, index) => ({
+      userId, localDate: `2026-07-${String(index + 1).padStart(2, '0')}`, status: 'completed' as const, completedAt: new Date(),
+    })))
+    const plans = createPlanRepository(db)
+    expect(await plans.countCompleted(userId)).toBe(7)
+    const plan = await plans.create({ userId, localDate: '2026-07-08', exerciseIds: ['a', 'b'], mode: 'timed' })
+    expect(plan.mode).toBe('timed')
+  })
 
   it('enforces one incomplete plan and preserves draft versions', async () => {
     const plans = createPlanRepository(db)

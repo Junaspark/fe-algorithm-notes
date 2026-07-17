@@ -1,6 +1,7 @@
 import type { NotificationPort } from '@/adapters/notifications/port'
 import type { DailyPlan, PlanRepository } from './repository'
 import type { ExerciseSelector, SelectedExercise } from './selector'
+import { scheduleTimedInterview } from '@/domain/reviews/schedule'
 
 export type PlanCheckResult = { planId: string | null; created: boolean; remainingCount: number; plan?: DailyPlan }
 
@@ -33,8 +34,9 @@ export function createPlanService(dependencies: {
 
       const selected = await dependencies.selector.select({ userId: dependencies.userId, now })
       assertComposition(selected)
+      const mode = scheduleTimedInterview(await dependencies.plans.countCompleted(dependencies.userId))
       try {
-        plan = await dependencies.plans.create({ userId: dependencies.userId, localDate: localDate(now), exerciseIds: selected.map(({ id }) => id) })
+        plan = await dependencies.plans.create({ userId: dependencies.userId, localDate: localDate(now), exerciseIds: selected.map(({ id }) => id), mode })
       } catch (error) {
         if (!isActivePlanConflict(error)) throw error
         plan = await dependencies.plans.findActive(dependencies.userId)

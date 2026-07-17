@@ -8,7 +8,8 @@ test('morning creates once, carries incomplete work, evening reminds, and carrie
   const sent: Array<{ kind: string; exerciseIds: string[] }> = []
   const plans = {
     findActive: async () => active,
-    create: async ({ localDate, exerciseIds }: { localDate: string; exerciseIds: string[] }) => active = { id: '11111111-1111-4111-8111-111111111111', userId: 'owner', localDate, status: 'active', createdAt: new Date(), completedAt: null, items: exerciseIds.map((exerciseId, position) => ({ planId: '11111111-1111-4111-8111-111111111111', exerciseId, position, status: 'pending' as const, submissionId: null, completedAt: null })) },
+    countCompleted: async () => 0,
+    create: async ({ localDate, exerciseIds, mode = 'practice' }: { localDate: string; exerciseIds: string[]; mode?: 'practice' | 'timed' }) => active = { id: '11111111-1111-4111-8111-111111111111', userId: 'owner', localDate, mode, status: 'active', createdAt: new Date(), completedAt: null, items: exerciseIds.map((exerciseId, position) => ({ planId: '11111111-1111-4111-8111-111111111111', exerciseId, position, status: 'pending' as const, submissionId: null, completedAt: null })) },
   }
   const notifications = { send: async (message: { kind: string; exerciseIds: string[] }) => { sent.push(message) } }
   const morning = createPlanService({ userId: 'owner', plans: plans as never, notifications, selector: { select: async () => [{ id: 'unique-array', kind: 'algorithm' }, { id: 'debounce', kind: 'frontend' }] } })

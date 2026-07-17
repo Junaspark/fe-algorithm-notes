@@ -2,14 +2,16 @@ import { and, asc, eq, sql } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 
 import * as schema from '@/db/schema'
+import type { PlanMode } from '@/domain/reviews/schedule'
 
 export type PlanItem = typeof schema.planItems.$inferSelect
 export type DailyPlan = typeof schema.dailyPlans.$inferSelect & { items: PlanItem[] }
 export type Draft = typeof schema.drafts.$inferSelect
-export type CreatePlanInput = { userId: string; localDate: string; exerciseIds: [string, string] | string[] }
+export type CreatePlanInput = { userId: string; localDate: string; exerciseIds: [string, string] | string[]; mode?: PlanMode }
 
 export interface PlanRepository {
   findActive(userId: string): Promise<DailyPlan | null>
+  countCompleted(userId: string): Promise<number>
   create(input: CreatePlanInput): Promise<DailyPlan>
   markItemComplete(planId: string, exerciseId: string, submissionId: string): Promise<DailyPlan>
 }
@@ -40,13 +42,18 @@ export function createPlanRepository<TQuery extends PgQueryResultHKT>(db: Databa
       return plan ? load(db, plan) : null
     },
 
+    async countCompleted(userId) {
+      const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.dailyPlans).where(and(eq(schema.dailyPlans.userId, userId), eq(schema.dailyPlans.status, 'completed')))
+      return count
+    },
+
     async create(input) {
       if (input.exerciseIds.length !== 2) throw new Error('PLAN_REQUIRES_TWO_EXERCISES')
       try {
         return await db.transaction(async (tx) => {
           const kinds = await tx.select({ id: schema.exercises.id, kind: schema.exercises.kind }).from(schema.exercises).where(sql`${schema.exercises.id} in ${input.exerciseIds}`)
           if (kinds.length !== 2 || new Set(kinds.map(({ kind }) => kind)).size !== 2) throw new Error('PLAN_REQUIRES_ALGORITHM_AND_FRONTEND')
-          const [plan] = await tx.insert(schema.dailyPlans).values({ userId: input.userId, localDate: input.localDate }).returning()
+          const [plan] = await tx.insert(schema.dailyPlans).values({ userId: input.userId, localDate: input.localDate, mode: input.mode ?? 'practice' }).returning()
           await tx.insert(schema.planItems).values(input.exerciseIds.map((exerciseId, position) => ({ planId: plan.id, exerciseId, position })))
           return load(tx as Database<TQuery>, plan)
         })

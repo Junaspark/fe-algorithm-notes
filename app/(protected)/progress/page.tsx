@@ -10,12 +10,12 @@ export default async function ProgressPage() {
   if (!userId) return null
   const [exerciseRows, submissionRows, jobs] = await Promise.all([
     db.select().from(exercises),
-    db.select().from(submissions).where(eq(submissions.userId, userId)).orderBy(submissions.createdAt),
+    db.select().from(submissions).where(eq(submissions.userId, userId)).orderBy(desc(submissions.createdAt)).limit(2000),
     db.select().from(agentJobs).where(eq(agentJobs.userId, userId)).orderBy(desc(agentJobs.updatedAt)).limit(10),
   ])
   const exerciseMap = new Map(exerciseRows.map(row => [row.id, row.content]))
   const attempts = new Map<string, number>()
-  const metrics = calculateProgressMetrics(submissionRows.map(row => {
+  const metrics = calculateProgressMetrics([...submissionRows].reverse().map(row => {
     const attempt = (attempts.get(row.exerciseId) ?? 0) + 1; attempts.set(row.exerciseId, attempt)
     return { exerciseId: row.exerciseId, topics: exerciseMap.get(row.exerciseId)?.topics ?? [], attempt, passed: row.status === 'passed', durationMs: row.durationMs, completedAt: row.createdAt.toISOString() }
   }), new Date())

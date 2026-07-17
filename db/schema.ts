@@ -18,6 +18,7 @@ type AdapterAccountType = 'oauth' | 'oidc' | 'email' | 'webauthn'
 
 export const exerciseKind = pgEnum('exercise_kind', ['algorithm', 'frontend'])
 export const planStatus = pgEnum('plan_status', ['active', 'completed'])
+export const planMode = pgEnum('plan_mode', ['practice', 'timed'])
 export const planItemStatus = pgEnum('plan_item_status', ['pending', 'completed'])
 export const submissionStatus = pgEnum('submission_status', ['passed', 'failed'])
 export const reviewStatus = pgEnum('review_status', ['pending', 'completed'])
@@ -83,6 +84,7 @@ export const dailyPlans = pgTable('daily_plans', {
   userId: uuid('user_id').notNull(),
   localDate: text('local_date').notNull(),
   status: planStatus('status').notNull().default('active'),
+  mode: planMode('mode').notNull().default('practice'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   completedAt: timestamp('completed_at', { withTimezone: true }),
 }, (table) => [

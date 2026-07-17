@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { orderDueReviews, shouldScheduleTimedInterview } from '@/domain/reviews/schedule'
+import { orderDueReviews, scheduleTimedInterview, selectNextPendingReview } from '@/domain/reviews/schedule'
 
 describe('review scheduling', () => {
   it('orders overdue reviews first and avoids consecutive topics when alternatives exist', () => {
@@ -23,10 +23,19 @@ describe('review scheduling', () => {
   })
 
   it('schedules exactly one timed interview per seven completed plans', () => {
-    expect(shouldScheduleTimedInterview(0)).toBe(false)
-    expect(shouldScheduleTimedInterview(6)).toBe(false)
-    expect(shouldScheduleTimedInterview(7)).toBe(true)
-    expect(shouldScheduleTimedInterview(8)).toBe(false)
-    expect(shouldScheduleTimedInterview(14)).toBe(true)
+    expect(scheduleTimedInterview(0)).toBe('practice')
+    expect(scheduleTimedInterview(6)).toBe('practice')
+    expect(scheduleTimedInterview(7)).toBe('timed')
+    expect(scheduleTimedInterview(8)).toBe('practice')
+    expect(scheduleTimedInterview(14)).toBe('timed')
+  })
+
+  it('shows the earliest pending review for an exercise', () => {
+    const next = selectNextPendingReview([
+      { exerciseId: 'debounce', status: 'pending', dueAt: new Date('2026-07-20') },
+      { exerciseId: 'debounce', status: 'completed', dueAt: new Date('2026-07-17') },
+      { exerciseId: 'debounce', status: 'pending', dueAt: new Date('2026-07-18') },
+    ], 'debounce')
+    expect(next?.dueAt).toEqual(new Date('2026-07-18'))
   })
 })

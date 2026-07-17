@@ -2,17 +2,26 @@ import { and, eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { auth } from '@/auth'
 import { db } from '@/db/client'
-import { exercises, submissions } from '@/db/schema'
+import { exercises, reviews, submissions } from '@/db/schema'
 
 type Search = { q?: string; kind?: string; difficulty?: string; status?: string; topic?: string; weak?: string }
 
 export default async function LibraryPage({ searchParams }: { searchParams: Promise<Search> }) {
-  const [session, search, rows] = await Promise.all([auth(), searchParams, db.select().from(exercises)])
+  const session = await auth()
   const userId = session?.user?.id
   if (!userId) return null
-  const passedRows = await db.select({ exerciseId: submissions.exerciseId }).from(submissions).where(and(eq(submissions.userId, userId), eq(submissions.status, 'passed')))
-  const passed = new Set(passedRows.map(row => row.exerciseId))
-  const weakTopics = new Set(rows.flatMap(row => row.content.legacy?.mistakes.length ? row.content.topics : []))
+  const [search, rows, submissionRows, reviewRows] = await Promise.all([
+    searchParams,
+    db.select().from(exercises),
+    db.select({ exerciseId: submissions.exerciseId, status: submissions.status }).from(submissions).where(eq(submissions.userId, userId)).limit(2000),
+    db.select({ exerciseId: reviews.exerciseId }).from(reviews).where(and(eq(reviews.userId, userId), eq(reviews.status, 'pending'))).limit(500),
+  ])
+  const passed = new Set(submissionRows.filter(row => row.status === 'passed').map(row => row.exerciseId))
+  const weakExerciseIds = new Set([
+    ...submissionRows.filter(row => row.status === 'failed').map(row => row.exerciseId),
+    ...reviewRows.map(row => row.exerciseId),
+  ])
+  const weakTopics = new Set(rows.filter(row => weakExerciseIds.has(row.id)).flatMap(row => row.content.topics))
   const query = search.q?.trim().toLocaleLowerCase('zh-CN') ?? ''
   const filtered = rows.filter(({ content, kind, id }) => {
     const complete = passed.has(id)

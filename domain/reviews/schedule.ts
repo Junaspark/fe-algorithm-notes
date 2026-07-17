@@ -14,6 +14,14 @@ export function orderDueReviews<T extends DueReview>(reviews: T[], now: Date): T
   return ordered
 }
 
-export function shouldScheduleTimedInterview(completedPlans: number): boolean {
-  return completedPlans > 0 && completedPlans % 7 === 0
+export type PlanMode = 'practice' | 'timed'
+
+export function scheduleTimedInterview(completedPlans: number): PlanMode {
+  return completedPlans > 0 && completedPlans % 7 === 0 ? 'timed' : 'practice'
+}
+
+export function selectNextPendingReview<T extends { exerciseId: string; status: string; dueAt: Date }>(reviews: T[], exerciseId: string): T | undefined {
+  return reviews
+    .filter(review => review.exerciseId === exerciseId && review.status === 'pending')
+    .sort((left, right) => left.dueAt.getTime() - right.dueAt.getTime())[0]
 }

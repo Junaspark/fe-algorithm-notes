@@ -6,6 +6,7 @@ import type { DailyPlan, PlanRepository } from '@/domain/plans/repository'
 
 const activePlan = {
   id: '10000000-0000-4000-8000-000000000001', userId: 'user-1', localDate: '2026-07-15', status: 'active',
+  mode: 'practice',
   createdAt: new Date(), completedAt: null,
   items: [
     { planId: '10000000-0000-4000-8000-000000000001', exerciseId: 'alg', position: 0, status: 'pending', submissionId: null, completedAt: null },
@@ -18,7 +19,7 @@ const frontendExercise = { id: 'fe', kind: 'frontend' as const }
 
 const setup = () => {
   const plans = {
-    findActive: vi.fn(), create: vi.fn(), markItemComplete: vi.fn(),
+    findActive: vi.fn(), create: vi.fn(), markItemComplete: vi.fn(), countCompleted: vi.fn().mockResolvedValue(0),
   } satisfies PlanRepository
   const selector = { select: vi.fn() }
   const notifications = { send: vi.fn() }
@@ -41,8 +42,20 @@ describe('daily plan service', () => {
     selector.select.mockResolvedValue([algorithmExercise, frontendExercise])
     plans.create.mockResolvedValue(activePlan)
     const result = await service.runMorningCheck(new Date('2026-07-15T16:30:00Z'))
-    expect(plans.create).toHaveBeenCalledWith({ userId: 'user-1', localDate: '2026-07-16', exerciseIds: ['alg', 'fe'] })
+    expect(plans.create).toHaveBeenCalledWith({ userId: 'user-1', localDate: '2026-07-16', exerciseIds: ['alg', 'fe'], mode: 'practice' })
     expect(result.created).toBe(true)
+  })
+
+  it('creates the next plan in timed interview mode after every seven completed plans', async () => {
+    const { plans, selector, service } = setup()
+    plans.findActive.mockResolvedValue(null)
+    plans.countCompleted.mockResolvedValue(7)
+    selector.select.mockResolvedValue([algorithmExercise, frontendExercise])
+    plans.create.mockResolvedValue({ ...activePlan, mode: 'timed' })
+
+    await service.runMorningCheck(new Date('2026-07-15T16:30:00Z'))
+
+    expect(plans.create).toHaveBeenCalledWith(expect.objectContaining({ mode: 'timed' }))
   })
 
   it('reuses the active plan on a repeated morning call without creating a duplicate', async () => {
