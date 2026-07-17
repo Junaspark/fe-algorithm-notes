@@ -9,11 +9,34 @@
   ],
   "prompt": "使用 Set 利用唯一值特性完成数组去重。",
   "starterCode": "const uniqueArray = arr => [...new Set(arr)]",
+  "evaluation": {
+    "mode": "function"
+  },
   "publicTests": [
     {
-      "name": "loads the legacy implementation",
-      "args": [],
-      "expected": null,
+      "name": "去重并保留首次顺序",
+      "args": [
+        [
+          1,
+          1,
+          2,
+          3,
+          2
+        ]
+      ],
+      "expected": [
+        1,
+        2,
+        3
+      ],
+      "timeoutMs": 1000
+    },
+    {
+      "name": "空数组",
+      "args": [
+        []
+      ],
+      "expected": [],
       "timeoutMs": 1000
     }
   ],

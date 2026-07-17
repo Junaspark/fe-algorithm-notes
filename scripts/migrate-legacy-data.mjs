@@ -1,4 +1,4 @@
-import { readFile, readdir, mkdir, unlink, writeFile } from 'node:fs/promises'
+import { readFile, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import vm from 'node:vm'
 import { fileURLToPath } from 'node:url'
@@ -22,6 +22,13 @@ const slugs = new Map([
 
 const difficulty = { '简单': 'easy', '中等': 'medium', '困难': 'hard' }
 const algorithmCategories = new Set(['数组', '对象', '数据结构'])
+const executableCases = new Map([
+  [1, [{ name: '去重并保留首次顺序', args: [[1, 1, 2, 3, 2]], expected: [1, 2, 3] }, { name: '空数组', args: [[]], expected: [] }]],
+  [5, [{ name: '深拷贝嵌套数组与对象', args: [{ a: [1, { b: 2 }] }], expected: { a: [1, { b: 2 }] } }]],
+  [7, [{ name: '保持输入顺序', args: [[1, 2, 3]], expected: [1, 2, 3] }, { name: '空可迭代对象', args: [[]], expected: [] }]],
+  [8, [{ name: '第一个已兑现值', args: [[1, 2]], expected: 1 }]],
+  [9, [{ name: '记录每个结果', args: [[1, 2]], expected: [{ status: 'fulfilled', value: 1 }, { status: 'fulfilled', value: 2 }] }]],
+])
 
 const migrated = legacyItems.map((item) => {
   const id = slugs.get(item.id)
@@ -36,12 +43,10 @@ const migrated = legacyItems.map((item) => {
     topics: [item.category],
     prompt: item.summary,
     starterCode: item.code,
-    publicTests: [{
-      name: item.answer ? 'matches the documented output' : 'loads the legacy implementation',
-      args: [],
-      expected: item.answer ?? null,
-      timeoutMs: 1000,
-    }],
+    evaluation: item.answer ? { mode: 'console-output' } : executableCases.has(item.id) ? { mode: 'function' } : { mode: 'function-presence' },
+    publicTests: (executableCases.get(item.id) ?? [{
+      name: item.answer ? '匹配文档化输出' : '导出可调用实现', args: [], expected: item.answer ?? true,
+    }]).map(test => ({ ...test, timeoutMs: 1000 })),
     hiddenTests: [],
     legacy: item,
   }
@@ -50,13 +55,21 @@ const migrated = legacyItems.map((item) => {
 if (migrated.length !== 19) throw new Error(`Expected 19 exercises, got ${migrated.length}`)
 
 const destination = path.join(root, 'exercises')
-await mkdir(destination, { recursive: true })
-for (const file of await readdir(destination)) {
-  if (file.endsWith('.json')) await unlink(path.join(destination, file))
-}
+const staging = path.join(root, `.exercises-migration-${process.pid}`)
+const backup = path.join(root, `.exercises-backup-${process.pid}`)
+await rm(staging, { recursive: true, force: true })
+await mkdir(staging, { recursive: true })
 await Promise.all(migrated.map((exercise) => writeFile(
-  path.join(destination, `${exercise.id}.json`),
+  path.join(staging, `${exercise.id}.json`),
   `${JSON.stringify(exercise, null, 2)}\n`,
 )))
+await rename(destination, backup)
+try {
+  await rename(staging, destination)
+  await rm(backup, { recursive: true, force: true })
+} catch (error) {
+  await rename(backup, destination).catch(() => undefined)
+  throw error
+}
 
 console.log(`Migrated ${migrated.length} legacy exercises to ${destination}`)

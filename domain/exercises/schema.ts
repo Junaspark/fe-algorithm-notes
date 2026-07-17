@@ -16,6 +16,7 @@ export const ExerciseSchema = z.object({
   topics: z.array(z.string()).min(1),
   prompt: z.string().min(1),
   starterCode: z.string(),
+  evaluation: z.discriminatedUnion('mode', [z.object({ mode: z.literal('function') }), z.object({ mode: z.literal('function-presence') }), z.object({ mode: z.literal('console-output') })]).optional(),
   publicTests: z.array(TestCaseSchema).min(1),
   hiddenTests: z.array(TestCaseSchema),
   legacy: z.object({

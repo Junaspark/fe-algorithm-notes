@@ -67,6 +67,16 @@ describe('browser worker runner', () => {
     expect(result.tests[0]).toMatchObject({ name: 'wrong sum', status: 'failed', actual: 5, expected: 6 })
   })
 
+  it('supports a bounded console-output contract for Event Loop questions', async () => {
+    setRunnerWorkerFactory(() => new WorkerHarness())
+    const result = await runTests(request({
+      evaluationMode: 'console-output', exportName: '',
+      code: `console.log(1); Promise.resolve().then(() => console.log(3)); console.log(2)`,
+      tests: [{ name: 'event order', args: [], expected: '1 → 2 → 3' }],
+    }), 1_000)
+    expect(result.tests[0]).toMatchObject({ status: 'passed', actual: '1 → 2 → 3' })
+  })
+
   it.each([
     ['syntax errors', 'function add( {', 'SyntaxError'],
     ['thrown errors', 'function add() { throw new Error("boom") }', 'boom'],

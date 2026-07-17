@@ -50,4 +50,8 @@ describe('PostgreSQL training schema', () => {
     expect(localDate?.getSQLType()).toBe('text')
     expect(createdAt?.getSQLType()).toContain('with time zone')
   })
+
+  it('stores exercise completion duration for progress metrics', () => {
+    expect(getTableConfig(submissions).columns.find(({ name }) => name === 'duration_ms')?.getSQLType()).toBe('integer')
+  })
 })

@@ -24,10 +24,11 @@ async function warmJavaScriptWorker(api: MonacoApi, uri: import('monaco-editor')
 export default function CodeEditor({ value, onChange }: { value: string; onChange(value: string): void }) {
   const editorRef = useRef<{ getAction(id: string): { run(): Promise<void> } | null } | null>(null)
   const [workerReady, setWorkerReady] = useState(false)
+  const [workerFailed, setWorkerFailed] = useState(false)
   const format = () => void editorRef.current?.getAction('editor.action.formatDocument')?.run()
-  return <><button type="button" className="format-button" data-worker-ready={workerReady} onClick={format}>格式化代码</button><MonacoEditor aria-label="代码编辑器" height="100%" language="javascript" theme="vs-dark" value={value} onMount={(instance, api) => {
+  return <><button type="button" className="format-button" data-worker-ready={workerReady} onClick={format}>格式化代码</button>{workerFailed ? <p role="status" className="editor-worker-error">智能编辑服务加载失败，仍可继续编码与运行。</p> : null}<MonacoEditor aria-label="代码编辑器" height="100%" language="javascript" theme="vs-dark" value={value} onMount={(instance, api) => {
     editorRef.current = instance
     const uri = instance.getModel()?.uri
-    if (uri) void warmJavaScriptWorker(api, uri).then(() => setWorkerReady(true))
+    if (uri) void warmJavaScriptWorker(api, uri).then(() => setWorkerReady(true)).catch(() => setWorkerFailed(true))
   }} onChange={next => onChange(next ?? '')} options={{ fontSize: 16, minimap: { enabled: false }, automaticLayout: true, padding: { top: 20 }, wordWrap: 'on', formatOnPaste: true, scrollBeyondLastLine: false }} /></>
 }

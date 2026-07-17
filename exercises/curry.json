@@ -9,11 +9,14 @@
   ],
   "prompt": "利用闭包持续收集参数，参数数量满足原函数形参数量后执行。",
   "starterCode": "function curry(fn) {\n  return function curried(...args) {\n    if (args.length >= fn.length) {\n      return fn.apply(this, args)\n    }\n\n    return function (...rest) {\n      return curried.apply(this, [...args, ...rest])\n    }\n  }\n}",
+  "evaluation": {
+    "mode": "function-presence"
+  },
   "publicTests": [
     {
-      "name": "loads the legacy implementation",
+      "name": "导出可调用实现",
       "args": [],
-      "expected": null,
+      "expected": true,
       "timeoutMs": 1000
     }
   ],

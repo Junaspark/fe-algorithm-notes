@@ -95,6 +95,21 @@ export async function executeRun(request: RunRequest): Promise<RunResult> {
   const capturedConsole = Object.freeze({ log: capture, info: capture, warn: capture, error: capture })
   const facade = createRestrictedFacade()
 
+  if (request.evaluationMode === 'console-output') {
+    try {
+      const evaluate = new Function(
+        'console', 'fetch', 'XMLHttpRequest', 'WebSocket', 'importScripts', 'indexedDB', 'localStorage',
+        'globalThis', 'self', 'postMessage', 'Worker', 'SharedWorker', 'EventSource', 'BroadcastChannel', 'navigator', 'Function',
+        `"use strict"; return (async () => { ${request.code}\nawait Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 10)); })()`,
+      )
+      await evaluate(capturedConsole, facade.fetch, facade.XMLHttpRequest, facade.WebSocket, facade.importScripts, facade.indexedDB, facade.localStorage, facade, facade, facade.postMessage, facade.Worker, facade.SharedWorker, facade.EventSource, facade.BroadcastChannel, facade.navigator, facade.Function)
+      const actual = logs.join(' → ')
+      return { requestId: request.requestId, logs, durationMs: Math.round(performance.now() - startedAt), tests: request.tests.map(test => ({ name: test.name, status: valuesEqual(actual, test.expected) ? 'passed' : 'failed', durationMs: Math.round(performance.now() - startedAt), expected: test.expected, actual })) }
+    } catch (error) {
+      return evaluationErrorResult(request, startedAt, logs, error)
+    }
+  }
+
   let submittedFunction: (...args: JsonValue[]) => unknown
   try {
     if (!/^[A-Za-z_$][\w$]*$/.test(request.exportName)) throw new Error('Export name must be a JavaScript identifier')
@@ -112,6 +127,10 @@ export async function executeRun(request: RunRequest): Promise<RunResult> {
     if (typeof submittedFunction !== 'function') throw new Error(`Export "${request.exportName}" is not a function`)
   } catch (error) {
     return evaluationErrorResult(request, startedAt, logs, error)
+  }
+
+  if (request.evaluationMode === 'function-presence') {
+    return { requestId: request.requestId, logs, durationMs: Math.round(performance.now() - startedAt), tests: request.tests.map(test => ({ name: test.name, status: test.expected === true ? 'passed' : 'failed', durationMs: 0, expected: test.expected, actual: true })) }
   }
 
   const tests: TestResult[] = []

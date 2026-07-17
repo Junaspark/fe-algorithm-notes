@@ -36,7 +36,7 @@ describe('PostgreSQL repositories', () => {
     db = drizzle(client, { schema })
     const migration = await readFile(path.join(process.cwd(), 'drizzle/0000_silky_juggernaut.sql'), 'utf8')
     await client.exec(migration.replaceAll('--> statement-breakpoint', ''))
-    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql', '0005_git_sync_leases.sql']) {
+    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql', '0005_git_sync_leases.sql', '0006_submission_duration.sql']) {
       await client.exec((await readFile(path.join(process.cwd(), 'drizzle', name), 'utf8')).replaceAll('--> statement-breakpoint', ''))
     }
     await db.insert(schema.exercises).values([
@@ -126,6 +126,7 @@ describe('PostgreSQL repositories', () => {
     const submissions = createSubmissionRepository(db)
     const userId = '00000000-0000-4000-8000-000000000003'
     const first = await submissions.create({ userId, exerciseId: 'a', code: 'v1', status: 'failed', testResult: { passed: 0, failed: 1 } })
+    await new Promise(resolve => setTimeout(resolve, 2))
     const second = await submissions.create({ userId, exerciseId: 'a', code: 'v2', status: 'passed', testResult: { passed: 1, failed: 0 } })
 
     await expect(submissions.find(first.id)).resolves.toMatchObject({ code: 'v1' })

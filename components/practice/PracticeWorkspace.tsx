@@ -8,7 +8,7 @@ import RuleFeedback from './RuleFeedback'
 import TestResults from './TestResults'
 import { flushDraftQueue, queueDraft, removeQueuedDraft, type DraftSendResult, type QueuedDraft } from './offline-drafts'
 
-type Exercise = { id: string; title: string; kind: 'algorithm' | 'frontend'; difficulty: 'easy' | 'medium' | 'hard'; prompt: string; starterCode: string; exportName: string; publicTests: TestCase[]; fullTests: TestCase[] }
+type Exercise = { id: string; title: string; kind: 'algorithm' | 'frontend'; difficulty: 'easy' | 'medium' | 'hard'; prompt: string; starterCode: string; exportName: string; evaluationMode?: 'function' | 'function-presence' | 'console-output'; publicTests: TestCase[]; fullTests: TestCase[] }
 type Props = { exercise: Exercise; userId: string; initialDraft: { code: string; version: number } }
 type Tab = 'problem' | 'code' | 'results'
 
@@ -52,7 +52,7 @@ export default function PracticeWorkspace({ exercise, userId, initialDraft }: Pr
 
   const execute = async (tests: TestCase[]) => {
     const requestId = crypto.randomUUID(); setBusy(true); setActiveTab('results')
-    try { const next = await runTests({ requestId, code, exportName: exercise.exportName, tests }, 3000); setResult(next); return next } finally { setBusy(false) }
+    try { const next = await runTests({ requestId, code, exportName: exercise.exportName, evaluationMode: exercise.evaluationMode, tests }, 3000); setResult(next); return next } finally { setBusy(false) }
   }
   const run = () => execute(exercise.publicTests)
   const submit = async () => {

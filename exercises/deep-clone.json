@@ -9,11 +9,30 @@
   ],
   "prompt": "递归复制普通对象和数组；当前基础版未覆盖循环引用及特殊对象。",
   "starterCode": "function deepClone(value) {\n  if (value === null || typeof value !== 'object') {\n    return value\n  }\n\n  const result = Array.isArray(value) ? [] : {}\n\n  Reflect.ownKeys(value).forEach(key => {\n    result[key] = deepClone(value[key])\n  })\n\n  return result\n}",
+  "evaluation": {
+    "mode": "function"
+  },
   "publicTests": [
     {
-      "name": "loads the legacy implementation",
-      "args": [],
-      "expected": null,
+      "name": "深拷贝嵌套数组与对象",
+      "args": [
+        {
+          "a": [
+            1,
+            {
+              "b": 2
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "a": [
+          1,
+          {
+            "b": 2
+          }
+        ]
+      },
       "timeoutMs": 1000
     }
   ],

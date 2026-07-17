@@ -29,7 +29,7 @@ export function createPassingSubmissionPersistence<TQuery extends PgQueryResultH
       }
       const [item] = await tx.select().from(schema.planItems).where(and(eq(schema.planItems.planId, plan.id), eq(schema.planItems.exerciseId, input.exerciseId))).limit(1)
       if (!item) throw new Error('EXERCISE_NOT_IN_ACTIVE_PLAN')
-      const [submission] = await tx.insert(schema.submissions).values({ userId: input.userId, exerciseId: input.exerciseId, requestId: input.evidence.requestId, code: input.code, status: 'passed', testResult: { passed: input.evidence.tests.length, failed: 0 } }).onConflictDoNothing().returning()
+      const [submission] = await tx.insert(schema.submissions).values({ userId: input.userId, exerciseId: input.exerciseId, requestId: input.evidence.requestId, code: input.code, status: 'passed', testResult: { passed: input.evidence.tests.length, failed: 0 }, durationMs: input.elapsedSeconds * 1000 }).onConflictDoNothing().returning()
       if (!submission) {
         const [replayed] = await tx.select().from(schema.submissions).where(and(eq(schema.submissions.userId, input.userId), eq(schema.submissions.exerciseId, input.exerciseId), eq(schema.submissions.requestId, input.evidence.requestId))).limit(1)
         if (!replayed) throw new Error('SUBMISSION_REPLAY_LOOKUP_FAILED')

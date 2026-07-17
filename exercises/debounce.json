@@ -9,11 +9,14 @@
   ],
   "prompt": "连续触发时不断重置定时器，只在最后一次触发后的延迟时间到达时执行。",
   "starterCode": "function debounce(fn, delay) {\n  let timer\n\n  return function (...args) {\n    clearTimeout(timer)\n\n    timer = setTimeout(() => {\n      fn.apply(this, args)\n    }, delay)\n  }\n}",
+  "evaluation": {
+    "mode": "function-presence"
+  },
   "publicTests": [
     {
-      "name": "loads the legacy implementation",
+      "name": "导出可调用实现",
       "args": [],
-      "expected": null,
+      "expected": true,
       "timeoutMs": 1000
     }
   ],

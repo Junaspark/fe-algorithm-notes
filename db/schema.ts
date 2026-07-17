@@ -98,6 +98,7 @@ export const submissions = pgTable('submissions', {
   code: text('code').notNull(),
   status: submissionStatus('status').notNull(),
   testResult: jsonb('test_result').$type<{ passed: number; failed: number }>().notNull(),
+  durationMs: integer('duration_ms').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index('submissions_user_exercise').on(table.userId, table.exerciseId), uniqueIndex('submissions_user_exercise_request_once').on(table.userId, table.exerciseId, table.requestId)])
 

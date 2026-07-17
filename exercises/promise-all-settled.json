@@ -9,11 +9,28 @@
   ],
   "prompt": "等待所有成员 settled，并按输入顺序返回每个成员的状态和结果。",
   "starterCode": "function promiseAllSettled(iterable) {\n  return new Promise(resolve => {\n    const promises = Array.from(iterable)\n\n    if (promises.length === 0) {\n      resolve([])\n      return\n    }\n\n    const result = []\n    let settledCount = 0\n\n    const checkDone = () => {\n      settledCount++\n      if (settledCount === promises.length) {\n        resolve(result)\n      }\n    }\n\n    promises.forEach((item, index) => {\n      Promise.resolve(item).then(\n        value => {\n          result[index] = { status: 'fulfilled', value }\n          checkDone()\n        },\n        reason => {\n          result[index] = { status: 'rejected', reason }\n          checkDone()\n        }\n      )\n    })\n  })\n}",
+  "evaluation": {
+    "mode": "function"
+  },
   "publicTests": [
     {
-      "name": "loads the legacy implementation",
-      "args": [],
-      "expected": null,
+      "name": "记录每个结果",
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "expected": [
+        {
+          "status": "fulfilled",
+          "value": 1
+        },
+        {
+          "status": "fulfilled",
+          "value": 2
+        }
+      ],
       "timeoutMs": 1000
     }
   ],

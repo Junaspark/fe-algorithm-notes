@@ -9,9 +9,12 @@
   ],
   "prompt": "同步阶段建立微任务 B、G、H；按 FIFO 清空，再执行宏任务 E。",
   "starterCode": "async function async1() {\n  console.log('A')\n  await async2()\n  console.log('B')\n}\n\nasync function async2() {\n  console.log('C')\n}\n\nconsole.log('D')\n\nsetTimeout(() => {\n  console.log('E')\n}, 0)\n\nasync1()\n\nnew Promise(resolve => {\n  console.log('F')\n  resolve()\n}).then(() => {\n  console.log('G')\n})\n\nPromise.resolve().then(() => {\n  console.log('H')\n})\n\nconsole.log('I')",
+  "evaluation": {
+    "mode": "console-output"
+  },
   "publicTests": [
     {
-      "name": "matches the documented output",
+      "name": "匹配文档化输出",
       "args": [],
       "expected": "D → A → C → F → I → B → G → H → E",
       "timeoutMs": 1000

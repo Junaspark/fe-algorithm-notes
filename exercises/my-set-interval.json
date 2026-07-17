@@ -9,11 +9,14 @@
   ],
   "prompt": "通过递归 setTimeout 在每次执行后调度下一次任务，并提供 cancel。",
   "starterCode": "function mySetInterval(fn, delay) {\n  let timer\n  let cancelled = false\n\n  function run() {\n    if (cancelled) return\n\n    timer = setTimeout(() => {\n      fn()\n      run()\n    }, delay)\n  }\n\n  run()\n\n  return {\n    cancel() {\n      cancelled = true\n      clearTimeout(timer)\n    }\n  }\n}",
+  "evaluation": {
+    "mode": "function-presence"
+  },
   "publicTests": [
     {
-      "name": "loads the legacy implementation",
+      "name": "导出可调用实现",
       "args": [],
-      "expected": null,
+      "expected": true,
       "timeoutMs": 1000
     }
   ],

@@ -33,7 +33,8 @@ describe('protected layout', () => {
   it('renders protected content only for the normalized allowed GitHub login', async () => {
     auth.mockResolvedValue({ user: { githubLogin: '  JUNASPARK  ' } })
 
-    await expect(ProtectedLayout({ children: 'private' as ReactNode })).resolves.toBe('private')
+    const rendered = await ProtectedLayout({ children: 'private' as ReactNode })
+    expect((rendered.props as { children: ReactNode[] }).children[1]).toBe('private')
     expect(redirect).not.toHaveBeenCalled()
   })
 })

@@ -11,6 +11,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "seed": "tsx scripts/seed.ts"
+    ,"migration:compare": "node scripts/compare-legacy-migration.mjs"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "latest",
@@ -42,5 +43,5 @@
     "vite": "^8.1.4",
     "vitest": "latest"
   },
-  "packageManager": "pnpm@10"
+  "packageManager": "pnpm@10.28.1"
 }

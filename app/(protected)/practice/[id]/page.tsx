@@ -22,5 +22,5 @@ export default async function PracticePage({ params }: { params: Promise<{ id: s
   const content = exercise.content
   const exportName = content.starterCode.match(/function\s+([\w$]+)/)?.[1] ?? id.replaceAll('-', '')
   const publicTests = runnerTests(content.publicTests)
-  return <PracticeWorkspace userId={userId} exercise={{ id, title: content.title, kind: content.kind, difficulty: content.difficulty, prompt: content.prompt, starterCode: content.starterCode, exportName, publicTests, fullTests: [...publicTests, ...runnerTests(content.hiddenTests)] }} initialDraft={{ code: draft?.code ?? content.starterCode, version: draft?.version ?? 0 }} />
+  return <PracticeWorkspace userId={userId} exercise={{ id, title: content.title, kind: content.kind, difficulty: content.difficulty, prompt: content.prompt, starterCode: content.starterCode, exportName, evaluationMode: content.evaluation?.mode ?? 'function', publicTests, fullTests: [...publicTests, ...runnerTests(content.hiddenTests)] }} initialDraft={{ code: draft?.code ?? content.starterCode, version: draft?.version ?? 0 }} />
 }

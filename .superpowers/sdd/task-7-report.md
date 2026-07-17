@@ -39,8 +39,8 @@ The repository package manager wrapper attempted an online dependency refresh an
 
 - Confirmed new tests failed first for missing claim/complete APIs, immutable mismatch acceptance, oversized submission acceptance, stale claims, and terminal conflicts.
 - Production PGlite coverage now exercises both job types, migration nullability, atomic competing workers, expired lease reclamation, and invalid-row quarantine.
-- Focused Agent/API/DB/submission verification: 10 files, 46 tests passed.
-- Full Vitest verification: 25 files, 101 tests passed.
+- Focused Agent/API/DB/submission verification after hardening: 10 files, 49 tests passed.
+- Full Vitest verification after hardening: 25 files, 104 tests passed.
 - TypeScript, ESLint, production Next build, and `git diff --check` passed.
 
 ## Final review fixes

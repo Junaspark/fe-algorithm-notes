@@ -13,6 +13,7 @@ export type RunRequest = {
   requestId: string
   code: string
   exportName: string
+  evaluationMode?: 'function' | 'function-presence' | 'console-output'
   tests: TestCase[]
   complexityAssessment?: string
 }
@@ -81,6 +82,7 @@ export function isRunRequestEnvelope(value: unknown): value is RunRequestEnvelop
   return typeof request.requestId === 'string'
     && typeof request.code === 'string'
     && typeof request.exportName === 'string'
+    && (request.evaluationMode === undefined || request.evaluationMode === 'function' || request.evaluationMode === 'function-presence' || request.evaluationMode === 'console-output')
     && Array.isArray(request.tests)
     && request.tests.every(test => isRecord(test)
       && typeof test.name === 'string'
