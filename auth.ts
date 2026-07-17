@@ -88,4 +88,14 @@ export const authConfig = {
   },
 } satisfies NextAuthConfig
 
-export const { auth, handlers, signIn, signOut } = NextAuth(authConfig)
+const nextAuth = NextAuth(authConfig)
+export const { handlers, signIn, signOut } = nextAuth
+type AppSession = { user: { id?: string; githubLogin?: string; name?: string | null; email?: string | null; image?: string | null }; expires: string }
+export async function auth(): Promise<AppSession | null> {
+  if (process.env.E2E_COMPILED === '1' && process.env.E2E_TEST_MODE === '1') {
+    const { cookies } = await import('next/headers')
+    const login = (await cookies()).get('e2e-user')?.value
+    return login ? { user: { id: '00000000-0000-4000-8000-000000000001', githubLogin: login, name: login }, expires: '2099-01-01' } as never : null
+  }
+  return nextAuth.auth() as Promise<AppSession | null>
+}

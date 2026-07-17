@@ -8,6 +8,10 @@ import { calculateProgressMetrics } from '@/domain/progress/metrics'
 export default async function ProgressPage() {
   const session = await auth(); const userId = session?.user?.id
   if (!userId) return null
+  if (process.env.E2E_COMPILED === '1' && process.env.E2E_TEST_MODE === '1') {
+    const state = (await import('@/domain/e2e/state')).getE2EState(); const result = state.agentJobs.find(x => x.status === 'succeeded')?.result as { summary?: string; improvements?: string[] } | undefined
+    return <main className="workbench-page"><h1>成长报告</h1><section className="agent-panel"><h2>{result?.summary ?? '深度复盘处理中'}</h2>{result?.improvements?.map(x => <p key={x}>{x}</p>)}</section></main>
+  }
   const [exerciseRows, submissionRows, jobs] = await Promise.all([
     db.select().from(exercises),
     db.select().from(submissions).where(eq(submissions.userId, userId)).orderBy(desc(submissions.createdAt)).limit(2000),

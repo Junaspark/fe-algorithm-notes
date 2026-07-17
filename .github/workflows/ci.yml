@@ -21,5 +21,11 @@ jobs:
       - run: pnpm test
       - run: pnpm migration:compare
       - run: pnpm build
+        env:
+          E2E_COMPILE: '1'
+          AUTH_SECRET: e2e-build
+          AUTH_GITHUB_ID: e2e-build
+          AUTH_GITHUB_SECRET: e2e-build
+          DATABASE_URL: http://unused.invalid
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm playwright test

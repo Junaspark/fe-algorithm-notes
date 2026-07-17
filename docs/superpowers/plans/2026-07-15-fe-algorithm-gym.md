@@ -657,7 +657,7 @@ Before enabling real schedules or direct-to-main writes:
 ## Task 9 migration and exercise hardening report (2026-07-17)
 
 - Replaced every `function-presence` assertion with a closed, schema-validated authored scenario; learner input cannot provide executable test code.
-- Added real Worker readiness coverage for all 19 canonical exercises: each migrated starter passes and a deliberately wrong implementation fails.
+- Added real Worker readiness coverage for all 19 canonical exercises in Vitest: each migrated starter passes and a deliberately wrong implementation fails.
 - Rebuilt migration as destination-parameterized library functions. Staging is schema/readiness validated before an atomic swap, with restoration and cleanup for absent destinations, stale backups, and failures before or after the swap.
 - The comparator verifies schema validity, unique canonical IDs, exact stable slug mapping, and normalized deep equality of code, status, complexity, mistakes, and questions.
-- Verification evidence: 169 Vitest tests, TypeScript, ESLint, migration comparison, production build (with build-time test environment), and the three real-browser Worker tests passed.
+- Task 9 browser acceptance now uses a production Next build/start. Six Playwright flows cover real protected/library pages, actual cron Route Handlers, desktop/mobile Monaco + Worker + draft/submission Route Handlers, timeout recovery, unique job enqueue state, retryable Git conflict, and Agent review rendering. Deterministic acceptance storage is an explicitly dual-gated in-memory test repository; database concurrency remains an integration/promotion concern rather than a browser claim.

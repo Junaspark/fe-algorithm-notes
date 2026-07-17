@@ -40,7 +40,13 @@ export function createSubmissionRoute(deps: Dependencies) {
   }
 }
 
-export const POST = async (request: Request) => createSubmissionRoute({
+export const POST = async (request: Request) => {
+  if (process.env.E2E_COMPILED === '1' && process.env.E2E_TEST_MODE === '1') {
+    const { getE2EState } = await import('@/domain/e2e/state'); const state = getE2EState()
+    return createSubmissionRoute({ authenticate: async () => ({ user: { id: '00000000-0000-4000-8000-000000000001' } }), submit: async input => { state.submissions.push({ exerciseId: input.exerciseId, code: input.code, status: 'passed', durationMs: input.elapsedSeconds * 1000 }); const item = state.plan?.items.find(x => x.exerciseId === input.exerciseId); if (item) item.status = 'completed'; const done = !!state.plan?.items.every(x => x.status === 'completed'); if (done && state.plan) { state.plan.status = 'completed'; if (!state.gitJobs.length) state.gitJobs.push({ status: 'queued' }); if (!state.agentJobs.length) state.agentJobs.push({ status: 'queued' }) } return { submissionId: crypto.randomUUID(), completed: true, planCompleted: done } } })(request)
+  }
+  return createSubmissionRoute({
   authenticate: async () => (await import('@/auth')).auth(),
   submit: async input => (await import('@/domain/submissions/service')).persistPassingSubmission(input),
-})(request)
+  })(request)
+}

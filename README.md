@@ -28,6 +28,10 @@ pnpm migration:compare
 
 The migration gate compares exactly 19 legacy IDs and deep-compares normalized code, status, complexity, mistakes, and interview questions before obsolete static runtime files may be removed. Canonical exercises live in `exercises/*.json`; application state lives in PostgreSQL.
 
+## Browser acceptance
+
+`E2E_COMPILE=1 pnpm build && pnpm test:e2e` runs Playwright against `next start`, not the Vite fixture server. The suite drives protected App Router pages, Monaco and the exercise Worker, and the draft, submission, cron, Agent-review, and Git-conflict HTTP paths. Deterministic state is available only when the artifact was built with `E2E_COMPILE=1` **and** started with `E2E_TEST_MODE=1`; otherwise `/api/e2e/state` is a 404 and normal Auth.js/PostgreSQL/adapters remain in use. This in-memory acceptance repository verifies Next wiring and browser behavior; PostgreSQL repository behavior remains covered by the PGlite integration suite and the live-PostgreSQL promotion gate documented in `docs/operations/deployment.md`.
+
 ## Security boundaries
 
 - GitHub OAuth allows only normalized handle `junaspark`.

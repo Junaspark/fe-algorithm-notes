@@ -17,6 +17,13 @@ export default async function PracticePage({ params }: { params: Promise<{ id: s
   const [{ id }, session] = await Promise.all([params, auth()])
   const userId = session?.user?.id
   if (!userId) return null
+  if (process.env.E2E_COMPILED === '1' && process.env.E2E_TEST_MODE === '1') {
+    const state = (await import('@/domain/e2e/state')).getE2EState(); const row = state.exercises.find(x => x.id === id); if (!row) notFound()
+    const content = row.content; const publicTests = runnerTests(content.publicTests); const draft = state.drafts[id]
+    const exportName = content.starterCode.match(/(?:function|class)\s+([\w$]+)/)?.[1]
+      ?? content.starterCode.match(/(?:const|let|var)\s+([\w$]+)\s*=/)?.[1] ?? id.replaceAll('-', '')
+    return <PracticeWorkspace userId={userId} exercise={{ id, title: content.title, kind: content.kind, difficulty: content.difficulty, prompt: content.prompt, starterCode: content.starterCode, exportName, evaluationMode: content.evaluation?.mode ?? 'function', publicTests, fullTests: [...publicTests, ...runnerTests(content.hiddenTests)] }} initialDraft={{ code: draft?.code ?? content.starterCode, version: draft?.version ?? 0 }} />
+  }
   const [exercise] = await db.select().from(exercises).where(eq(exercises.id, id)).limit(1)
   if (!exercise) notFound()
   const [draft] = await db.select().from(drafts).where(and(eq(drafts.userId, userId), eq(drafts.exerciseId, id))).limit(1)

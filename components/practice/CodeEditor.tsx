@@ -2,9 +2,10 @@
 
 import dynamic from 'next/dynamic'
 import { useRef, useState } from 'react'
-import './monaco-local'
-
-const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false, loading: () => <div className="editor-loading">正在准备编辑器…</div> })
+const MonacoEditor = dynamic(async () => {
+  await import('./monaco-local')
+  return import('@monaco-editor/react')
+}, { ssr: false, loading: () => <div className="editor-loading">正在准备编辑器…</div> })
 
 type MonacoApi = Parameters<NonNullable<React.ComponentProps<typeof import('@monaco-editor/react').default>['onMount']>>[1]
 
