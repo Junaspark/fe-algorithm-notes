@@ -9,6 +9,7 @@ import * as schema from '@/db/schema'
 import { createDraftRepository, createPlanRepository } from '@/domain/plans/repository'
 import { createSubmissionRepository } from '@/domain/submissions/repository'
 import { createPassingSubmissionPersistence } from '@/domain/submissions/service'
+import { createExecutionAttestation, normalizedCodeHash } from '@/domain/submissions/execution-attestation'
 import { DrizzleAgentJobRepository } from '@/adapters/agents/codex-bridge'
 import type { AgentJob } from '@/domain/agents/contracts'
 import { seedExercises } from '@/scripts/seed'
@@ -36,7 +37,7 @@ describe('PostgreSQL repositories', () => {
     db = drizzle(client, { schema })
     const migration = await readFile(path.join(process.cwd(), 'drizzle/0000_silky_juggernaut.sql'), 'utf8')
     await client.exec(migration.replaceAll('--> statement-breakpoint', ''))
-    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql', '0005_git_sync_leases.sql', '0006_submission_duration.sql', '0007_daily_plan_mode.sql']) {
+    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql', '0005_git_sync_leases.sql', '0006_submission_duration.sql', '0007_daily_plan_mode.sql', '0008_execution_attestations.sql']) {
       await client.exec((await readFile(path.join(process.cwd(), 'drizzle', name), 'utf8')).replaceAll('--> statement-breakpoint', ''))
     }
     await db.insert(schema.exercises).values([
@@ -48,6 +49,14 @@ describe('PostgreSQL repositories', () => {
   })
 
   afterEach(async () => client.close())
+
+  async function attest(userId: string, exerciseId: string, code: string) {
+    process.env.EXECUTION_ATTESTATION_SECRET = 'integration-test-secret-at-least-32-bytes'
+    const nonce = crypto.randomUUID(); const suiteVersion = 'exercise:1:full'; const expiresAt = new Date(Date.now() + 120_000)
+    const token = await createExecutionAttestation({ userId, exerciseId, code, suiteVersion }, { secret: process.env.EXECUTION_ATTESTATION_SECRET, nonce })
+    await db.insert(schema.executionAttestations).values({ nonce, userId, exerciseId, codeHash: await normalizedCodeHash(code), suiteVersion, expiresAt })
+    return token
+  }
 
   it('persists timed mode and counts only completed plans for interview scheduling', async () => {
     const userId = '00000000-0000-4000-8000-000000000020'
@@ -161,13 +170,14 @@ describe('PostgreSQL repositories', () => {
     const persist = createPassingSubmissionPersistence(db)
     const userId = '00000000-0000-4000-8000-000000000007'
     await plans.create({ userId, localDate: '2026-07-15', exerciseIds: ['a', 'b'] })
-    const input = (exerciseId: string, requestId: string) => ({ userId, exerciseId, code: `function ${exerciseId}(){return true}`, complexityAnswer: 'O(1)', elapsedSeconds: 5, evidence: { scope: 'full' as const, requestId, tests: [{ name: 'works', status: 'passed' as const }] } })
+    const input = async (exerciseId: string, requestId: string, owner = userId) => { const code = `function ${exerciseId}(){return true}`; return { userId: owner, exerciseId, code, complexityAnswer: 'O(1)', elapsedSeconds: 5, evidence: { scope: 'full' as const, requestId, attestation: await attest(owner, exerciseId, code), tests: [{ name: 'works', status: 'passed' as const }] } } }
 
-    await expect(persist({ ...input('a', 'bad-suite'), evidence: { ...input('a', 'bad-suite').evidence, tests: [{ name: 'invented', status: 'passed' }] } })).rejects.toThrow('FULL_TEST_EVIDENCE_MISMATCH')
-    await expect(persist({ ...input('a', 'wrong-owner'), userId: '00000000-0000-4000-8000-000000000008' })).rejects.toThrow('ACTIVE_PLAN_NOT_FOUND')
-    await expect(persist(input('a', 'run-a'))).resolves.toMatchObject({ planCompleted: false })
-    const completed = await persist(input('b', 'run-b'))
-    const replay = await persist(input('b', 'run-b'))
+    const bad = await input('a', 'bad-suite'); await expect(persist({ ...bad, evidence: { ...bad.evidence, tests: [{ name: 'invented', status: 'passed' }] } })).rejects.toThrow('FULL_TEST_EVIDENCE_MISMATCH')
+    await expect(persist(await input('a', 'wrong-owner', '00000000-0000-4000-8000-000000000008'))).rejects.toThrow('ACTIVE_PLAN_NOT_FOUND')
+    await expect(persist(await input('a', 'run-a'))).resolves.toMatchObject({ planCompleted: false })
+    const completedInput = await input('b', 'run-b'); const completed = await persist(completedInput)
+    await expect(persist(completedInput)).rejects.toThrow('EXECUTION_ATTESTATION_REPLAYED_OR_EXPIRED')
+    const replay = completed
 
     expect(replay.submissionId).toBe(completed.submissionId)
     expect(replay.planCompleted).toBe(true)
@@ -180,19 +190,22 @@ describe('PostgreSQL repositories', () => {
   it('linearizes concurrent retries of the final passing submission', async () => {
     const userId = '00000000-0000-4000-8000-000000000009'
     await createPlanRepository(db).create({ userId, localDate: '2026-07-15', exerciseIds: ['a', 'b'] })
-    const input = (exerciseId: string, requestId: string) => ({
+    const input = async (exerciseId: string, requestId: string) => {
+      const code = `function ${exerciseId}(){return true}`
+      return {
       userId,
       exerciseId,
-      code: `function ${exerciseId}(){return true}`,
+      code,
       complexityAnswer: 'O(1)',
       elapsedSeconds: 5,
-      evidence: { scope: 'full' as const, requestId, tests: [{ name: 'works', status: 'passed' as const }] },
-    })
+      evidence: { scope: 'full' as const, requestId, attestation: await attest(userId, exerciseId, code), tests: [{ name: 'works', status: 'passed' as const }] },
+    }}
     const persist = createPassingSubmissionPersistence(db)
-    await persist(input('a', 'run-a'))
+    await persist(await input('a', 'run-a'))
 
     let selectCount = 0
-    const winnerCompleted = persist(input('b', 'run-final'))
+    const finalInput = await input('b', 'run-final')
+    const winnerCompleted = persist(finalInput)
     const staleReplayDb = {
       transaction: async (callback: (tx: unknown) => unknown) => {
         await winnerCompleted
@@ -219,13 +232,13 @@ describe('PostgreSQL repositories', () => {
       },
     } as unknown as typeof db
 
-    const results = await Promise.all([
+    const results = await Promise.allSettled([
       winnerCompleted,
-      createPassingSubmissionPersistence(staleReplayDb)(input('b', 'run-final')),
+      createPassingSubmissionPersistence(staleReplayDb)(finalInput),
     ])
 
-    expect(results[0]).toEqual(results[1])
-    expect(results[0].planCompleted).toBe(true)
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1)
+    expect(results.filter(result => result.status === 'rejected').map(result => (result as PromiseRejectedResult).reason.message)).toEqual(['EXECUTION_ATTESTATION_REPLAYED_OR_EXPIRED'])
     expect(await db.select().from(schema.submissions).where(eq(schema.submissions.requestId, 'run-final'))).toHaveLength(1)
     expect(await db.select().from(schema.gitSyncJobs)).toHaveLength(1)
     expect(await db.select().from(schema.agentJobs)).toHaveLength(1)

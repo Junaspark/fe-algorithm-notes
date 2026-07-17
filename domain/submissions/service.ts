@@ -1,8 +1,9 @@
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, gt, isNull } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type { SubmissionInput } from '@/app/api/submissions/route'
 import * as schema from '@/db/schema'
 import { AgentJobSchema } from '@/domain/agents/contracts'
+import { normalizedCodeHash, verifyExecutionAttestation } from '@/domain/submissions/execution-attestation'
 
 type SubmissionDatabase<TQuery extends PgQueryResultHKT> = PgDatabase<TQuery, typeof schema>
 
@@ -13,6 +14,17 @@ export function createPassingSubmissionPersistence<TQuery extends PgQueryResultH
       if (!exercise) throw new Error('EXERCISE_NOT_FOUND')
       const authoredTests = [...exercise.content.publicTests, ...exercise.content.hiddenTests]
       if (authoredTests.length !== input.evidence.tests.length || authoredTests.some((test, index) => test.name !== input.evidence.tests[index]?.name)) throw new Error('FULL_TEST_EVIDENCE_MISMATCH')
+
+      const suiteVersion = `exercise:${exercise.version}:full`
+      const secret = process.env.EXECUTION_ATTESTATION_SECRET
+      if (!secret) throw new Error('EXECUTION_ATTESTATION_SECRET_MISSING')
+      const attestation = await verifyExecutionAttestation(input.evidence.attestation, { userId: input.userId, exerciseId: input.exerciseId, code: input.code, suiteVersion }, { secret })
+      const consumed = await tx.update(schema.executionAttestations).set({ consumedAt: new Date() }).where(and(
+        eq(schema.executionAttestations.nonce, attestation.nonce), eq(schema.executionAttestations.userId, input.userId),
+        eq(schema.executionAttestations.exerciseId, input.exerciseId), eq(schema.executionAttestations.codeHash, await normalizedCodeHash(input.code)),
+        eq(schema.executionAttestations.suiteVersion, suiteVersion), isNull(schema.executionAttestations.consumedAt), gt(schema.executionAttestations.expiresAt, new Date()),
+      )).returning({ nonce: schema.executionAttestations.nonce })
+      if (consumed.length !== 1) throw new Error('EXECUTION_ATTESTATION_REPLAYED_OR_EXPIRED')
 
       const [prior] = await tx.select().from(schema.submissions).where(and(eq(schema.submissions.userId, input.userId), eq(schema.submissions.exerciseId, input.exerciseId), eq(schema.submissions.requestId, input.evidence.requestId))).limit(1)
       if (prior) {

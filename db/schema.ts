@@ -104,6 +104,17 @@ export const submissions = pgTable('submissions', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index('submissions_user_exercise').on(table.userId, table.exerciseId), uniqueIndex('submissions_user_exercise_request_once').on(table.userId, table.exerciseId, table.requestId)])
 
+export const executionAttestations = pgTable('execution_attestations', {
+  nonce: text('nonce').primaryKey(),
+  userId: uuid('user_id').notNull(),
+  exerciseId: text('exercise_id').notNull().references(() => exercises.id),
+  codeHash: text('code_hash').notNull(),
+  suiteVersion: text('suite_version').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index('execution_attestations_owner').on(table.userId, table.exerciseId)])
+
 export const planItems = pgTable('plan_items', {
   planId: uuid('plan_id').notNull().references(() => dailyPlans.id, { onDelete: 'cascade' }),
   exerciseId: text('exercise_id').notNull().references(() => exercises.id),

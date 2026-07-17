@@ -65,13 +65,16 @@ describe('PracticeWorkspace', () => {
   })
 
   it('runs public tests and submits only a fresh full run', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ submissionId: 's1', completed: true, planCompleted: false }) })
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ attestation: 'signed-token' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ submissionId: 's1', completed: true, planCompleted: false }) })
     vi.stubGlobal('fetch', fetchMock)
     render(<PracticeWorkspace exercise={exercise} userId="owner" initialDraft={{ code: exercise.starterCode, version: 0 }} />)
     fireEvent.click(screen.getByRole('button', { name: '运行测试' }))
     expect(await screen.findByText('1 / 1 通过')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: '提交解答' }))
     expect(await screen.findByText('已通过全部测试')).toBeVisible()
+    expect(fetchMock).toHaveBeenCalledWith('/api/executions/attest', expect.objectContaining({ method: 'POST' }))
     expect(fetchMock).toHaveBeenCalledWith('/api/submissions', expect.objectContaining({ method: 'POST' }))
   })
 })

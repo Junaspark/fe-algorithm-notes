@@ -41,7 +41,7 @@ describe('cron handlers', () => {
     const response = await createMorningRoute({ getSecret: () => 'correct', createRuntime: vi.fn().mockResolvedValue({ runMorningCheck, takeReminder: () => reminder }) })(new Request('http://localhost', { headers: { authorization: 'Bearer correct' } }))
     expect(runMorningCheck).toHaveBeenCalledOnce()
     expect(runMorningCheck).toHaveBeenCalledWith(new Date('2026-07-16T01:30:00Z'))
-    expect(await response.json()).toEqual({ planId: 'plan-1', created: true, remainingCount: 2, reminder })
+    expect(await response.json()).toEqual({ planId: 'plan-1', created: true, remainingCount: 2, reminder, delivery: { id: 'morning:plan-1:2026-07-16', channel: 'codex-task-notification', message: reminder } })
   })
 
   it('runs evening once at the frozen 20:00 Shanghai instant', async () => {
@@ -50,7 +50,7 @@ describe('cron handlers', () => {
     const reminder = { kind: 'evening', userId: 'user-1', planId: 'plan-1', remainingCount: 1, exerciseIds: ['alg'] }
     const response = await createEveningRoute({ getSecret: () => 'correct', createRuntime: vi.fn().mockResolvedValue({ runEveningCheck, takeReminder: () => reminder }) })(new Request('http://localhost', { headers: { authorization: 'Bearer correct' } }))
     expect(runEveningCheck).toHaveBeenCalledOnce()
-    expect(await response.json()).toEqual({ planId: 'plan-1', created: false, remainingCount: 1, reminder })
+    expect(await response.json()).toEqual({ planId: 'plan-1', created: false, remainingCount: 1, reminder, delivery: { id: 'evening:plan-1:2026-07-16', channel: 'codex-task-notification', message: reminder } })
   })
 
   it('does not initialize evening runtime before authorization', async () => {

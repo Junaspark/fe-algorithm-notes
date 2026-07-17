@@ -58,7 +58,11 @@ export default function PracticeWorkspace({ exercise, userId, initialDraft }: Pr
   const submit = async () => {
     const full = await execute(exercise.fullTests)
     if (!full.tests.every(test => test.status === 'passed')) { setFeedback({ message: '尚有全量测试未通过', tone: 'warning' }); return }
-    const response = await fetch('/api/submissions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ exerciseId: exercise.id, code, complexityAnswer: '见解题代码', elapsedSeconds: Math.round((Date.now() - startedAt) / 1000), evidence: { scope: 'full', requestId: full.requestId, tests: full.tests.map(({ name, status }) => ({ name, status })) } }) })
+    const tests = full.tests.map(({ name, status }) => ({ name, status }))
+    const attested = await fetch('/api/executions/attest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ exerciseId: exercise.id, code, requestId: full.requestId, tests }) })
+    if (!attested.ok) { setFeedback({ message: '运行证明签发失败，请重试', tone: 'warning' }); return }
+    const { attestation } = await attested.json() as { attestation: string }
+    const response = await fetch('/api/submissions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ exerciseId: exercise.id, code, complexityAnswer: '见解题代码', elapsedSeconds: Math.round((Date.now() - startedAt) / 1000), evidence: { scope: 'full', requestId: full.requestId, attestation, tests } }) })
     setFeedback(response.ok ? { message: '已通过全部测试', tone: 'success' } : { message: '提交未被接受，请重试', tone: 'warning' })
   }
   const selectTab = (tab: Tab) => setActiveTab(tab)

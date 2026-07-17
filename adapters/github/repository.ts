@@ -17,10 +17,12 @@ const statusOf = (error: unknown): number | undefined =>
   typeof error === 'object' && error !== null && 'status' in error ? Number(error.status) : undefined
 
 export class GitHubRepository {
-  constructor(private readonly options: { github: { git: GitApi }; owner: string; repo: string }) {}
+  constructor(private readonly options: { github: { git: GitApi }; owner: string; repo: string; branch?: string }) {}
 
   async commitToMain(manifest: ExportManifest, expectedHeadSha: string, knownCommitSha?: string): Promise<{ commitSha: string; applied: boolean }> {
     const { github, owner, repo } = this.options
+    const branch = this.options.branch ?? 'main'
+    if (!/^[A-Za-z0-9._/-]+$/.test(branch) || branch.includes('..') || branch.startsWith('/') || branch.endsWith('/')) throw new Error('INVALID_GITHUB_BRANCH')
     const files = manifest.files.map(file => ({ path: assertExportPath(file.path), content: file.content }))
     if (new Set(files.map(file => file.path)).size !== files.length) throw new Error('DUPLICATE_EXPORT_PATH')
     const fingerprint = createHash('sha256').update(JSON.stringify({
@@ -29,7 +31,7 @@ export class GitHubRepository {
       files: [...files].sort((a, b) => a.path.localeCompare(b.path, 'en')),
     })).digest('hex')
     const message = `practice: complete ${manifest.localDate} daily exercises\n\nFE-Algorithm-Gym-Manifest: sha256:${fingerprint}`
-    const head = await github.git.getRef({ owner, repo, ref: 'heads/main' })
+    const head = await github.git.getRef({ owner, repo, ref: `heads/${branch}` })
     const remoteHeadSha = head.data.object.sha
 
     const baseCommit = await github.git.getCommit({ owner, repo, commit_sha: expectedHeadSha })
@@ -62,7 +64,7 @@ export class GitHubRepository {
       throw new RetryableGitSyncError(undefined, 'REMOTE_HEAD_CHANGED')
     }
     try {
-      await github.git.updateRef({ owner, repo, ref: 'heads/main', sha: commit.data.sha, force: false })
+      await github.git.updateRef({ owner, repo, ref: `heads/${branch}`, sha: commit.data.sha, force: false })
     } catch (error) {
       if (statusOf(error) === 409 || statusOf(error) === 422) throw new RetryableGitSyncError(error)
       throw error

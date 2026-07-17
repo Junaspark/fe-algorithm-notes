@@ -3,6 +3,7 @@ import { AgentJobSchema, MAX_REVIEW_CODE_BYTES, utf8ByteLength } from '@/domain/
 
 const Evidence = z.object({
   scope: z.literal('full'), requestId: z.string().min(1),
+  attestation: z.string().min(1),
   tests: z.array(z.object({ name: z.string().min(1), status: z.enum(['passed', 'failed', 'error', 'timeout']) })).min(1),
 }).refine(value => value.tests.every(test => test.status === 'passed'), 'Every full test must pass')
 const Input = z.object({
@@ -43,7 +44,12 @@ export function createSubmissionRoute(deps: Dependencies) {
 export const POST = async (request: Request) => {
   if (process.env.E2E_COMPILED === '1' && process.env.E2E_TEST_MODE === '1') {
     const { getE2EState } = await import('@/domain/e2e/state'); const state = getE2EState()
-    return createSubmissionRoute({ authenticate: async () => ({ user: { id: '00000000-0000-4000-8000-000000000001' } }), submit: async input => { state.submissions.push({ exerciseId: input.exerciseId, code: input.code, status: 'passed', durationMs: input.elapsedSeconds * 1000 }); const item = state.plan?.items.find(x => x.exerciseId === input.exerciseId); if (item) item.status = 'completed'; const done = !!state.plan?.items.every(x => x.status === 'completed'); if (done && state.plan) { state.plan.status = 'completed'; if (!state.gitJobs.length) state.gitJobs.push({ status: 'queued' }); if (!state.agentJobs.length) state.agentJobs.push({ status: 'queued' }) } return { submissionId: crypto.randomUUID(), completed: true, planCompleted: done } } })(request)
+    return createSubmissionRoute({ authenticate: async () => ({ user: { id: '00000000-0000-4000-8000-000000000001' } }), submit: async input => {
+      const { verifyExecutionAttestation } = await import('@/domain/submissions/execution-attestation')
+      const payload = await verifyExecutionAttestation(input.evidence.attestation, { userId: input.userId, exerciseId: input.exerciseId, code: input.code, suiteVersion: 'exercise:1:full' }, { secret: 'e2e-attestation-secret-at-least-32-bytes' })
+      const index = state.attestationNonces.indexOf(payload.nonce); if (index < 0) throw new Error('EXECUTION_ATTESTATION_REPLAYED_OR_EXPIRED'); state.attestationNonces.splice(index, 1)
+      state.submissions.push({ exerciseId: input.exerciseId, code: input.code, status: 'passed', durationMs: input.elapsedSeconds * 1000 }); const item = state.plan?.items.find(x => x.exerciseId === input.exerciseId); if (item) item.status = 'completed'; const done = !!state.plan?.items.every(x => x.status === 'completed'); if (done && state.plan) { state.plan.status = 'completed'; if (!state.gitJobs.length) state.gitJobs.push({ status: 'queued' }); if (!state.agentJobs.length) state.agentJobs.push({ status: 'queued' }) } return { submissionId: crypto.randomUUID(), completed: true, planCompleted: done }
+    } })(request)
   }
   return createSubmissionRoute({
   authenticate: async () => (await import('@/auth')).auth(),

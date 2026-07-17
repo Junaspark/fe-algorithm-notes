@@ -20,7 +20,15 @@ jobs:
       - run: pnpm tsc --noEmit
       - run: pnpm test
       - run: pnpm migration:compare
-      - run: pnpm build
+      - name: Build publishable production artifact (E2E seams compiled out)
+        run: pnpm build
+        env:
+          AUTH_SECRET: production-build
+          AUTH_GITHUB_ID: production-build
+          AUTH_GITHUB_SECRET: production-build
+          DATABASE_URL: http://unused.invalid
+      - name: Build isolated E2E-only artifact (never published)
+        run: pnpm build
         env:
           E2E_COMPILE: '1'
           AUTH_SECRET: e2e-build

@@ -1,8 +1,8 @@
 import { e2eEnabled, getE2EState, resetE2EState } from '@/domain/e2e/state'
 const absent = () => new Response(null, { status: 404 })
-export async function GET() { return e2eEnabled() ? Response.json(getE2EState()) : absent() }
+export async function GET(request: Request) { return e2eEnabled(request) ? Response.json(getE2EState()) : absent() }
 export async function POST(request: Request) {
-  if (!e2eEnabled()) return absent()
+  if (!e2eEnabled(request)) return absent()
   const input = await request.json(); let state = getE2EState()
   if (input.action === 'reset') state = resetE2EState(input)
   if (input.action === 'complete' && state.plan) state.plan.items.find(x => x.exerciseId === input.exerciseId)!.status = 'completed'

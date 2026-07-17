@@ -56,10 +56,11 @@ export async function createDrizzleGitSyncJobStore() {
   ])
   const owner = requiredEnv('GITHUB_REPOSITORY_OWNER')
   const repo = requiredEnv('GITHUB_REPOSITORY_NAME')
+  const branch = process.env.GITHUB_SYNC_BRANCH ?? 'main'
   const github = new Octokit({ auth: requiredEnv('GITHUB_SYNC_TOKEN') })
 
   const jobs = createGitSyncJobStore({ db, schema, github, owner, repo })
-  return { jobs, repository: new GitHubRepository({ github, owner, repo }), buildManifest: buildExportManifest }
+  return { jobs, repository: new GitHubRepository({ github, owner, repo, branch }), buildManifest: buildExportManifest }
 }
 
 export function createGitSyncJobStore(options: {
@@ -68,9 +69,11 @@ export function createGitSyncJobStore(options: {
   github: { git: { getRef(args: { owner: string; repo: string; ref: string }): Promise<{ data: { object: { sha: string } } }> } }
   owner: string
   repo: string
+  branch?: string
   leaseMs?: number
 }): GitSyncJobStore {
   const { schema, github, owner, repo } = options
+  const branch = options.branch ?? 'main'
   const db = options.db as typeof import('@/db/client')['db']
   const leaseMs = options.leaseMs ?? 5 * 60 * 1000
   const jobs: GitSyncJobStore = {
@@ -94,7 +97,7 @@ export function createGitSyncJobStore(options: {
       const attempt = candidate.status === 'running' ? candidate.attempt + 1 : candidate.attempt
       let expectedHeadSha = candidate.expectedHeadSha
       if (!expectedHeadSha) {
-        const head = await github.git.getRef({ owner, repo, ref: 'heads/main' })
+        const head = await github.git.getRef({ owner, repo, ref: `heads/${branch}` })
         expectedHeadSha = head.data.object.sha
       }
       const [claimed] = await tx.update(schema.gitSyncJobs).set({

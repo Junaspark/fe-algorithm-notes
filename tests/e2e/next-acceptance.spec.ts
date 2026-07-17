@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 const setup = async (request: import('@playwright/test').APIRequestContext, body: Record<string, unknown> = {}) => {
-  const response = await request.post('/api/e2e/state', { data: { action: 'reset', ...body } })
+  const response = await request.post('/api/e2e/state', { headers: { 'x-e2e-secret': 'e2e-local-only-secret-at-least-32-bytes' }, data: { action: 'reset', ...body } })
   expect(response.status()).toBe(200)
 }
 
@@ -23,7 +23,7 @@ test('actual cron handlers create, carry over, and remind only remaining work', 
   expect(await response.json()).toMatchObject({ created: true, remainingCount: 2 })
   response = await request.get('/api/cron/morning', { headers: { authorization: 'Bearer e2e-cron', 'x-e2e-now': '2026-07-18T01:30:00.000Z' } })
   expect(await response.json()).toMatchObject({ created: false, remainingCount: 2 })
-  await request.post('/api/e2e/state', { data: { action: 'complete', exerciseId: 'unique-array' } })
+  await request.post('/api/e2e/state', { headers: { 'x-e2e-secret': 'e2e-local-only-secret-at-least-32-bytes' }, data: { action: 'complete', exerciseId: 'unique-array' } })
   response = await request.get('/api/cron/evening', { headers: { authorization: 'Bearer e2e-cron', 'x-e2e-now': '2026-07-18T12:00:00.000Z' } })
   expect(await response.json()).toMatchObject({ remainingCount: 1, reminder: { exerciseIds: ['debounce'] } })
   response = await request.get('/api/cron/morning', { headers: { authorization: 'Bearer e2e-cron', 'x-e2e-now': '2026-07-19T01:30:00.000Z' } })
@@ -50,14 +50,14 @@ test('real Worker times out then recovers and completed plan creates one job of 
   await page.goto('/practice/unique-array'); const editor = page.getByRole('textbox', { name: 'Editor content' })
   await editor.focus(); await page.keyboard.press('Meta+A'); await page.keyboard.insertText('const uniqueArray = () => { while(true){} }'); await page.getByRole('button', { name: '运行测试' }).click(); await expect(page.locator('[data-status="timeout"]')).toBeVisible({ timeout: 5000 })
   await editor.focus(); await page.keyboard.press('Meta+A'); await page.keyboard.insertText('const uniqueArray = arr => [...new Set(arr)]'); await page.getByRole('button', { name: '提交解答' }).click(); await expect(page.getByText('已通过全部测试')).toBeVisible()
-  await request.post('/api/e2e/state', { data: { action: 'submitSecond' } }); const state = await request.get('/api/e2e/state').then(r => r.json())
+  await request.post('/api/e2e/state', { headers: { 'x-e2e-secret': 'e2e-local-only-secret-at-least-32-bytes' }, data: { action: 'submitSecond' } }); const state = await request.get('/api/e2e/state', { headers: { 'x-e2e-secret': 'e2e-local-only-secret-at-least-32-bytes' } }).then(r => r.json())
   expect(state).toMatchObject({ gitJobs: [{ status: 'queued' }], agentJobs: [{ status: 'queued' }] })
 })
 
 test('Git SHA conflict stays retryable and mock Agent review is rendered by real pages', async ({ page, context, request }) => {
   await setup(request, { completedPlan: true })
-  await request.post('/api/e2e/state', { data: { action: 'gitConflict' } }); await request.post('/api/e2e/state', { data: { action: 'agentReview' } })
-  const state = await request.get('/api/e2e/state').then(r => r.json()); expect(state.gitJobs[0]).toMatchObject({ status: 'failed', retryable: true })
+  await request.post('/api/e2e/state', { headers: { 'x-e2e-secret': 'e2e-local-only-secret-at-least-32-bytes' }, data: { action: 'gitConflict' } }); await request.post('/api/e2e/state', { headers: { 'x-e2e-secret': 'e2e-local-only-secret-at-least-32-bytes' }, data: { action: 'agentReview' } })
+  const state = await request.get('/api/e2e/state', { headers: { 'x-e2e-secret': 'e2e-local-only-secret-at-least-32-bytes' } }).then(r => r.json()); expect(state.gitJobs[0]).toMatchObject({ status: 'failed', retryable: true })
   await context.addCookies([{ name: 'e2e-user', value: 'Junaspark', url: 'http://127.0.0.1:4174' }])
   await page.goto('/progress'); await expect(page.getByText('优先解释边界条件')).toBeVisible()
   await page.goto('/mistakes'); await expect(page.getByText('Mock Agent：注意空数组')).toBeVisible()

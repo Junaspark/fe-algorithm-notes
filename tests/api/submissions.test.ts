@@ -4,7 +4,7 @@ import { createSubmissionRoute } from '@/app/api/submissions/route'
 
 const valid = {
   exerciseId: 'debounce', code: 'function debounce() {}', complexityAnswer: 'O(1)', elapsedSeconds: 90,
-  evidence: { scope: 'full' as const, requestId: 'run-1', tests: [{ name: 'public', status: 'passed' as const }, { name: 'hidden', status: 'passed' as const }] },
+  evidence: { scope: 'full' as const, requestId: 'run-1', attestation: 'signed-token', tests: [{ name: 'public', status: 'passed' as const }, { name: 'hidden', status: 'passed' as const }] },
 }
 const request = (body: unknown) => new Request('http://localhost/api/submissions', { method: 'POST', body: JSON.stringify(body) })
 

@@ -48,6 +48,14 @@ describe('GitHubRepository', () => {
     expect(github.git.createCommit.mock.invocationCallOrder[0]).toBeLessThan(github.git.updateRef.mock.invocationCallOrder[0])
   })
 
+  it('can validate promotion on a disposable branch while default remains main', async () => {
+    const github = githubMock()
+    const repository = new GitHubRepository({ github, owner: 'Junaspark', repo: 'gym', branch: 'validation/promotion' })
+    await repository.commitToMain(manifest, 'recorded-old')
+    expect(github.git.getRef).toHaveBeenCalledWith(expect.objectContaining({ ref: 'heads/validation/promotion' }))
+    expect(github.git.updateRef).toHaveBeenCalledWith(expect.objectContaining({ ref: 'heads/validation/promotion', force: false }))
+  })
+
   it('stops when remote main changed', async () => {
     const github = githubMock()
     github.git.getRef.mockResolvedValue({ data: { object: { sha: 'remote-new' } } })
