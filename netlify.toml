@@ -1,0 +1,7 @@
+[build]
+command = "pnpm build:netlify"
+publish = ".next"
+
+[build.environment]
+NODE_VERSION = "22"
+PNPM_VERSION = "10.28.1"

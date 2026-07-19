@@ -23,3 +23,6 @@ node_modules/
 
 # Local Netlify folder
 .netlify
+
+# Generated from canonical Drizzle migrations
+netlify/database/migrations/
