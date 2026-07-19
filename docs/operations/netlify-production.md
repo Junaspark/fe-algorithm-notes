@@ -33,6 +33,8 @@ EXECUTION_ATTESTATION_SECRET="$(openssl rand -hex 32)" # EXECUTION_ATTESTATION_S
 AGENT_BRIDGE_SECRET="$(openssl rand -hex 32)" # AGENT_BRIDGE_SECRET
 ```
 
+Store every generated secret in the password manager before the first unset. Create named entries for the site and paste each variable through the password manager's protected input (or its stdin integration), confirm all four entries can be retrieved, and only then continue. The password manager is the source for reloading the exact same values for `deploy-preview`, production redeploys, Codex automations, and rotations; never regenerate a value merely because its shell variable was cleared.
+
 Required production keys:
 
 | Key | Classification | Initial production setting |
@@ -93,7 +95,7 @@ DATABASE_URL="$NETLIFY_DB_URL" pnpm db:migrate
 DATABASE_URL="$NETLIFY_DB_URL" pnpm seed
 ```
 
-The seed command must print `19 exercises upserted`. Run the purpose-built live gate; it opens two separate `postgres` clients, requires different `pg_backend_pid()` values, queries the live `exercises` table, and closes both clients. The URL remains a shell variable and the script never prints it.
+The seed command must print `19 exercises upserted`. Run the purpose-built live gate; it opens two separate `postgres` clients and Drizzle databases, requires different `pg_backend_pid()` values, and concurrently calls the production `createPlanRepository` transaction from both connections for one probe owner. Exactly one transaction must commit, the other must surface the repository's retryable `ACTIVE_PLAN_EXISTS` boundary, and both repositories must then read the same active plan. The gate verifies all 19 exercises, deletes its probe plan through the schema's cascade, and closes both clients. The URL remains a shell variable and the script never prints it.
 
 ```bash
 DATABASE_URL="$NETLIFY_DB_URL" pnpm tsx scripts/verify-live-database.ts
@@ -156,9 +158,10 @@ The discovery script requires exactly one normalized `Junaspark` row and fails c
 
 ## 6. Reminder and Codex Automation gate
 
-Load `PREVIEW_URL` and `CRON_SECRET` into the operator shell without echoing either. Create an incomplete two-item plan, then invoke both endpoints:
+Set the non-secret preview origin and reload `CRON_SECRET` from the password manager without echoing it. Create an incomplete two-item plan, then invoke both endpoints:
 
 ```bash
+PREVIEW_URL=https://validation--fe-algorithm-gym.netlify.app
 curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $CRON_SECRET" \
   "$PREVIEW_URL/api/cron/morning"
@@ -169,14 +172,14 @@ curl --fail-with-body --silent --show-error \
 
 The 09:30 and 20:00 responses must carry the same `planId` and only unfinished exercise IDs. The next 09:30 call must reuse that plan rather than create a new one.
 
-Update the existing morning automation instead of duplicating it, and create one evening automation. Record identifiers after creation (IDs are operational metadata, not credentials):
+Update the existing morning automation instead of duplicating it, and create one evening automation. Point both at the stable validation origin (`https://validation--fe-algorithm-gym.netlify.app/api/cron/morning` and `/api/cron/evening`) with the preview-context `CRON_SECRET`. Keep both schedules disabled so a preview cannot send an unattended reminder. Use each automation's manual **Run now** action, and require its non-null `delivery.message` to appear visibly on signed-in desktop and mobile clients before promotion. Record identifiers after creation (IDs are operational metadata, not credentials):
 
 ```text
 Codex Automation ID (09:30): <record-after-creation>
 Codex Automation ID (20:00): <record-after-creation>
 ```
 
-Both automations call the matching production endpoint, keep `CRON_SECRET` in their secret store, and publish only non-null `delivery.message`. Verify visible Codex task notifications on signed-in desktop and mobile clients. See `docs/cron-reminder-contract.md` for payload and deduplication rules.
+Both automations keep `CRON_SECRET` in their secret store and publish only non-null `delivery.message`. At this stage their target remains validation and their schedules remain disabled. See `docs/cron-reminder-contract.md` for payload and deduplication rules.
 
 ## 7. Validation-branch Git worker
 
@@ -212,7 +215,7 @@ unset OWNER_USER_ID
 pnpm --package=netlify-cli dlx netlify deploy --prod --build --context production
 ```
 
-Verify `Junaspark` reaches `/today`, another account is denied, then smoke-test a real Worker run, submission, and both cron endpoints. Only after every check passes, enable the automations and change Git sync from `validation/promotion` to `main`:
+Verify `Junaspark` reaches `/today`, another account is denied, then smoke-test a real Worker run, submission, and both production cron endpoints manually. After those production gates pass, Switch both automation endpoint URLs to production (`https://fe-algorithm-gym.netlify.app/api/cron/morning` and `/api/cron/evening`), reload the production `CRON_SECRET` from the password manager into their secret store, and use **Run now** once more. Require visible desktop/mobile delivery from the production endpoints before changing schedule state. Enable both schedules only after this production notification check succeeds. Finally change Git sync from `validation/promotion` to `main`:
 
 ```bash
 export GITHUB_SYNC_BRANCH=main

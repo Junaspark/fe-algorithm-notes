@@ -1,6 +1,9 @@
 import postgres from 'postgres'
+import { drizzle } from 'drizzle-orm/postgres-js'
 
 import { resolveDatabaseUrl } from '@/db/connection-string'
+import * as schema from '@/db/schema'
+import { createPlanRepository } from '@/domain/plans/repository'
 
 type QueryClient = {
   (strings: TemplateStringsArray, ...values: unknown[]): Promise<Record<string, unknown>[]>
@@ -9,9 +12,25 @@ type QueryClient = {
 
 type Connect = (url: string) => QueryClient
 
-export async function verifyLiveDatabase(url: string, connect: Connect = value => postgres(value, { max: 1 }) as unknown as QueryClient) {
+type ProbePlan = { id: string }
+type ProbeRepository = {
+  create(input: { userId: string; localDate: string; exerciseIds: string[] }): Promise<ProbePlan>
+  findActive(userId: string): Promise<ProbePlan | null>
+}
+
+type Dependencies = {
+  connect?: Connect
+  createDatabase?: (client: QueryClient) => unknown
+  createRepository?: (database: unknown) => ProbeRepository
+}
+
+export async function verifyLiveDatabase(url: string, dependencies: Dependencies = {}) {
+  const connect = dependencies.connect ?? (value => postgres(value, { max: 1 }) as unknown as QueryClient)
+  const createDatabase = dependencies.createDatabase ?? (client => drizzle(client as never, { schema }))
+  const createRepository = dependencies.createRepository ?? (database => createPlanRepository(database as never))
   const first = connect(url)
   const second = connect(url)
+  let probeUserId: string | undefined
 
   try {
     const [[firstBackend], [secondBackend]] = await Promise.all([
@@ -28,13 +47,36 @@ export async function verifyLiveDatabase(url: string, connect: Connect = value =
     const exerciseCount = Number(seed?.count)
     if (exerciseCount !== 19) throw new Error(`EXPECTED_19_EXERCISES: received ${exerciseCount}`)
 
-    return { firstPid, secondPid, exerciseCount }
+    const exercises = await first`select id, kind from exercises where kind in ('algorithm', 'frontend') order by id`
+    const algorithm = exercises.find(row => row.kind === 'algorithm')?.id
+    const frontend = exercises.find(row => row.kind === 'frontend')?.id
+    if (typeof algorithm !== 'string' || typeof frontend !== 'string') throw new Error('LIVE_PROBE_EXERCISES_REQUIRED')
+
+    probeUserId = crypto.randomUUID()
+    const input = { userId: probeUserId, localDate: `live-gate-${Date.now()}`, exerciseIds: [algorithm, frontend] }
+    const firstRepository = createRepository(createDatabase(first))
+    const secondRepository = createRepository(createDatabase(second))
+    const results = await Promise.allSettled([firstRepository.create(input), secondRepository.create(input)])
+    const successes = results.filter((result): result is PromiseFulfilledResult<ProbePlan> => result.status === 'fulfilled')
+    const conflicts = results.filter(result => result.status === 'rejected' && result.reason instanceof Error && result.reason.message === 'ACTIVE_PLAN_EXISTS')
+    if (successes.length !== 1 || conflicts.length !== 1) throw new Error('ACTIVE_PLAN_CONCURRENCY_GATE_FAILED')
+
+    const [firstView, secondView] = await Promise.all([
+      firstRepository.findActive(probeUserId),
+      secondRepository.findActive(probeUserId),
+    ])
+    if (!firstView || !secondView || firstView.id !== successes[0].value.id || secondView.id !== successes[0].value.id) {
+      throw new Error('ACTIVE_PLAN_CROSS_CONNECTION_VISIBILITY_FAILED')
+    }
+
+    return { firstPid, secondPid, exerciseCount, concurrency: 'ACTIVE_PLAN_EXISTS' as const }
   } finally {
+    if (probeUserId) await first`delete from daily_plans where user_id = ${probeUserId}`
     await Promise.allSettled([first.end(), second.end()])
   }
 }
 
 if (process.argv[1]?.endsWith('verify-live-database.ts')) {
   const result = await verifyLiveDatabase(resolveDatabaseUrl(process.env))
-  console.log(`live database gate passed: two backends (${result.firstPid}, ${result.secondPid}), ${result.exerciseCount} exercises`)
+  console.log(`live database gate passed: two backends (${result.firstPid}, ${result.secondPid}), ${result.exerciseCount} exercises, ${result.concurrency}`)
 }
