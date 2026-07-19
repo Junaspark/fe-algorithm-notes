@@ -2,6 +2,8 @@
 
 This application is provider-neutral. Record the selected application, PostgreSQL, scheduler, and secret-manager providers in the deployment change ticket; this repository does not require a hosting vendor.
 
+For the selected Netlify production site, use the executable provider-specific checklist in [`docs/operations/netlify-production.md`](./netlify-production.md). It fixes the site ID, OAuth URLs, migration/seed gates, preview promotion, Codex Automation evidence, validation-branch Git sync, and rollback procedure while this document remains the provider-neutral baseline.
+
 ## Required environment
 
 Set server-only secrets in the chosen secret manager: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `GITHUB_SYNC_TOKEN`, `GITHUB_REPOSITORY_OWNER`, `GITHUB_REPOSITORY_NAME`, `GITHUB_SYNC_BRANCH` (initially a disposable validation branch, then `main`), `CRON_SECRET`, `EXECUTION_ATTESTATION_SECRET` (at least 32 random bytes), `AGENT_ADAPTER`, `AGENT_BRIDGE_SECRET`, and `CODEX_BRIDGE_URL`. Set `NEXT_PUBLIC_APP_URL` to the public HTTPS origin. Never expose tokens or bridge/attestation secrets through a `NEXT_PUBLIC_` name.
