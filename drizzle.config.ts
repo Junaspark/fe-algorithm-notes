@@ -1,8 +1,10 @@
 import { defineConfig } from 'drizzle-kit'
 
+import { resolveDatabaseUrl } from './db/connection-string'
+
 export default defineConfig({
   dialect: 'postgresql',
   schema: './db/schema.ts',
   out: './drizzle',
-  dbCredentials: { url: process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/fe_algorithm_gym' },
+  dbCredentials: { url: resolveDatabaseUrl(process.env) },
 })
