@@ -20,3 +20,6 @@ Thumbs.db
 *.tsbuildinfo
 test-results/
 node_modules/
+
+# Local Netlify folder
+.netlify
