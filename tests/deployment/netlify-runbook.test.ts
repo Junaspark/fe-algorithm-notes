@@ -16,9 +16,20 @@ it('documents every production gate without embedding secret values', async () =
     '20:00',
     'Junaspark',
     'Codex Automation ID',
-    'netlify-cli rollback',
+    'scripts/verify-live-database.ts',
+    'OWNER_USER_ID',
+    '/deploys/',
+    '/restore',
   ]) expect(text).toContain(token)
 
   expect(text).not.toMatch(/gh[opsu]_[A-Za-z0-9]{20,}/)
-  expect(text).not.toMatch(/(?:AUTH_GITHUB_SECRET|CRON_SECRET|GITHUB_SYNC_TOKEN)=[^\s$<{][^\s]*/)
+  expect(text).not.toMatch(/(?:AUTH_GITHUB_SECRET|CRON_SECRET|GITHUB_SYNC_TOKEN)=["']?(?![$<{])[^\s"']+/)
+  expect(text).not.toContain('pnpm dlx netlify-cli')
+  expect(text).not.toMatch(/netlify-cli (?:rollback|deploy:rollback)/)
+  expect(text).not.toContain('env:list')
+  expect(text).not.toContain('LIVE_DATABASE_URL')
+
+  const netlifyCommands = text.match(/^pnpm .*netlify (?:login|status|link|env:set|db status|deploy).*$/gm) ?? []
+  expect(netlifyCommands.length).toBeGreaterThan(10)
+  expect(netlifyCommands.every(command => command.includes('pnpm --package=netlify-cli dlx netlify'))).toBe(true)
 })

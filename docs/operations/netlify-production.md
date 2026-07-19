@@ -4,15 +4,15 @@ This checklist promotes the personal gym to `https://fe-algorithm-gym.netlify.ap
 
 ## 1. Operator shell and site binding
 
-Use a shell whose history is disabled for secret entry. Do not paste command output containing credentials into tickets, commits, or this document.
+Use a private shell with tracing disabled. The commands below put generated values in shell variables without placing values in shell history or terminal output. Do not run `set -x`, echo a secret variable, or paste credential-bearing output into tickets, commits, or this document.
 
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
-pnpm dlx netlify-cli login
-pnpm dlx netlify-cli status
-pnpm dlx netlify-cli link --id 901b1baf-beca-4688-b0c8-24d5da2b9a80
-pnpm dlx netlify-cli status
+pnpm --package=netlify-cli dlx netlify login
+pnpm --package=netlify-cli dlx netlify status
+pnpm --package=netlify-cli dlx netlify link --id 901b1baf-beca-4688-b0c8-24d5da2b9a80
+pnpm --package=netlify-cli dlx netlify status
 ```
 
 The final status must name `fe-algorithm-gym`. Confirm PR #1 CI is green and record its commit SHA outside the secret store:
@@ -24,13 +24,13 @@ gh pr view 1 --repo Junaspark/fe-algorithm-notes --json headRefOid,url
 
 ## 2. Secret inventory
 
-Generate values locally; each command writes only to the terminal. Store the result directly in Netlify's encrypted environment-variable UI or with `netlify env:set`. Never add the values to `.env`, shell scripts, automation prompts, or Git.
+Generate values directly into non-exported shell variables. These exact generators satisfy the entropy requirement without printing the result:
 
 ```bash
-openssl rand -base64 48 # AUTH_SECRET
-openssl rand -hex 32    # CRON_SECRET
-openssl rand -hex 32    # EXECUTION_ATTESTATION_SECRET
-openssl rand -hex 32    # AGENT_BRIDGE_SECRET
+AUTH_SECRET="$(openssl rand -base64 48)" # AUTH_SECRET
+CRON_SECRET="$(openssl rand -hex 32)" # CRON_SECRET
+EXECUTION_ATTESTATION_SECRET="$(openssl rand -hex 32)" # EXECUTION_ATTESTATION_SECRET
+AGENT_BRIDGE_SECRET="$(openssl rand -hex 32)" # AGENT_BRIDGE_SECRET
 ```
 
 Required production keys:
@@ -53,33 +53,34 @@ Required production keys:
 | `AGENT_ADAPTER` | configuration | `mock` for first production deploy |
 | `NEXT_PUBLIC_APP_URL` | public configuration | `https://fe-algorithm-gym.netlify.app` |
 
-For each non-database key, load the intended value into the same-named local shell variable, then set it without placing the value in the command itself:
+Load all other sensitive values into same-named, non-exported shell variables with a silent prompt (`read -rs 'AUTH_GITHUB_SECRET?GitHub client secret: '` in zsh). Set them from variable references, then immediately `unset` each local secret. The literal secret is absent from history; while each CLI process runs it is necessarily present in that process's argument list. For a host where other users can inspect process arguments, use the Netlify UI instead.
+
+Set the production scope first. Do not set `OWNER_USER_ID` until after the first verified login in section 5:
 
 ```bash
-pnpm dlx netlify-cli env:set AUTH_SECRET "$AUTH_SECRET" --context production
-pnpm dlx netlify-cli env:set AUTH_GITHUB_ID "$AUTH_GITHUB_ID" --context production
-pnpm dlx netlify-cli env:set AUTH_GITHUB_SECRET "$AUTH_GITHUB_SECRET" --context production
-pnpm dlx netlify-cli env:set CRON_SECRET "$CRON_SECRET" --context production
-pnpm dlx netlify-cli env:set EXECUTION_ATTESTATION_SECRET "$EXECUTION_ATTESTATION_SECRET" --context production
-pnpm dlx netlify-cli env:set GITHUB_SYNC_TOKEN "$GITHUB_SYNC_TOKEN" --context production
-pnpm dlx netlify-cli env:set AGENT_BRIDGE_SECRET "$AGENT_BRIDGE_SECRET" --context production
-pnpm dlx netlify-cli env:set OWNER_USER_ID "$OWNER_USER_ID" --context production
-pnpm dlx netlify-cli env:set GITHUB_REPOSITORY_OWNER "$GITHUB_REPOSITORY_OWNER" --context production
-pnpm dlx netlify-cli env:set GITHUB_REPOSITORY_NAME "$GITHUB_REPOSITORY_NAME" --context production
-pnpm dlx netlify-cli env:set GITHUB_SYNC_BRANCH "$GITHUB_SYNC_BRANCH" --context production
-pnpm dlx netlify-cli env:set AGENT_ADAPTER "$AGENT_ADAPTER" --context production
-pnpm dlx netlify-cli env:set NEXT_PUBLIC_APP_URL "$NEXT_PUBLIC_APP_URL" --context production
-pnpm dlx netlify-cli env:list --context production
+pnpm --package=netlify-cli dlx netlify env:set AUTH_SECRET "$AUTH_SECRET" --context production
+pnpm --package=netlify-cli dlx netlify env:set AUTH_GITHUB_ID "$AUTH_GITHUB_ID" --context production
+pnpm --package=netlify-cli dlx netlify env:set AUTH_GITHUB_SECRET "$AUTH_GITHUB_SECRET" --context production
+pnpm --package=netlify-cli dlx netlify env:set CRON_SECRET "$CRON_SECRET" --context production
+pnpm --package=netlify-cli dlx netlify env:set EXECUTION_ATTESTATION_SECRET "$EXECUTION_ATTESTATION_SECRET" --context production
+pnpm --package=netlify-cli dlx netlify env:set GITHUB_SYNC_TOKEN "$GITHUB_SYNC_TOKEN" --context production
+pnpm --package=netlify-cli dlx netlify env:set AGENT_BRIDGE_SECRET "$AGENT_BRIDGE_SECRET" --context production
+pnpm --package=netlify-cli dlx netlify env:set GITHUB_REPOSITORY_OWNER "$GITHUB_REPOSITORY_OWNER" --context production
+pnpm --package=netlify-cli dlx netlify env:set GITHUB_REPOSITORY_NAME "$GITHUB_REPOSITORY_NAME" --context production
+pnpm --package=netlify-cli dlx netlify env:set GITHUB_SYNC_BRANCH "$GITHUB_SYNC_BRANCH" --context production
+pnpm --package=netlify-cli dlx netlify env:set AGENT_ADAPTER "$AGENT_ADAPTER" --context production
+pnpm --package=netlify-cli dlx netlify env:set NEXT_PUBLIC_APP_URL "$NEXT_PUBLIC_APP_URL" --context production
+unset AUTH_SECRET AUTH_GITHUB_SECRET CRON_SECRET EXECUTION_ATTESTATION_SECRET GITHUB_SYNC_TOKEN AGENT_BRIDGE_SECRET
 ```
 
-Review names and scopes only. Do not capture values. `DATABASE_URL` remains the portable override; never define it and `NETLIFY_DB_URL` with different databases.
+Verify key names and scopes in **Netlify UI → Project configuration → Environment variables**; do not use a CLI command that prints values. `DATABASE_URL` remains the portable override; never define it and `NETLIFY_DB_URL` with different databases.
 
 ## 3. Netlify Database, migrations, and seed
 
 Check the linked database and prepare the nine canonical migrations. `drizzle/` is the only editable migration source.
 
 ```bash
-pnpm dlx netlify-cli db status
+pnpm --package=netlify-cli dlx netlify db status
 pnpm netlify:migrations
 test "$(find netlify/database/migrations -type f -name '*.sql' | wc -l | tr -d ' ')" = 9
 git diff --exit-code -- drizzle
@@ -92,22 +93,43 @@ DATABASE_URL="$NETLIFY_DB_URL" pnpm db:migrate
 DATABASE_URL="$NETLIFY_DB_URL" pnpm seed
 ```
 
-The seed command must print `19 exercises upserted`. Run the live repository integration gate with two independent PostgreSQL connections before continuing; redact connection strings from captured output.
+The seed command must print `19 exercises upserted`. Run the purpose-built live gate; it opens two separate `postgres` clients, requires different `pg_backend_pid()` values, queries the live `exercises` table, and closes both clients. The URL remains a shell variable and the script never prints it.
 
 ```bash
-DATABASE_URL="$NETLIFY_DB_URL" LIVE_DATABASE_URL="$NETLIFY_DB_URL" pnpm vitest run tests/db/repositories.integration.test.ts
+DATABASE_URL="$NETLIFY_DB_URL" pnpm tsx scripts/verify-live-database.ts
 ```
 
 ## 4. GitHub OAuth gate
 
-Create or update a GitHub OAuth App owned by `Junaspark`:
+Create or update the production GitHub OAuth App owned by `Junaspark`:
 
 - Homepage URL: `https://fe-algorithm-gym.netlify.app`
 - Authorization callback URL: `https://fe-algorithm-gym.netlify.app/api/auth/callback/github`
 
-Put its client ID and client secret in Netlify as `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`. In the preview, verify `Junaspark` reaches `/today`; verify a different GitHub account reaches `/unauthorized`. A failed allowlist or callback test blocks promotion. The normal artifact must return 404 for E2E-only login/state routes.
+Put its client ID and client secret in Netlify's **production** context as `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`. GitHub OAuth requires an exact callback, so a random deploy-preview URL cannot truthfully validate this production callback. Section 5 therefore uses the stable validation alias with a separate validation OAuth App and deploy-preview credentials; the production app is exercised immediately after the controlled production deploy and must pass before schedules or direct-to-main are enabled.
 
 ## 5. Preview build and mobile acceptance
+
+Create a second GitHub OAuth App whose homepage is `https://validation--fe-algorithm-gym.netlify.app` and callback is `https://validation--fe-algorithm-gym.netlify.app/api/auth/callback/github`. Reload every referenced sensitive variable from the password manager with silent `read -rs` prompts, load the validation credentials separately, set them only for the `deploy-preview` context, and use the stable validation alias:
+
+```bash
+VALIDATION_APP_URL=https://validation--fe-algorithm-gym.netlify.app
+pnpm --package=netlify-cli dlx netlify env:set AUTH_SECRET "$AUTH_SECRET" --context deploy-preview
+pnpm --package=netlify-cli dlx netlify env:set AUTH_GITHUB_ID "$VALIDATION_AUTH_GITHUB_ID" --context deploy-preview
+pnpm --package=netlify-cli dlx netlify env:set AUTH_GITHUB_SECRET "$VALIDATION_AUTH_GITHUB_SECRET" --context deploy-preview
+pnpm --package=netlify-cli dlx netlify env:set CRON_SECRET "$CRON_SECRET" --context deploy-preview
+pnpm --package=netlify-cli dlx netlify env:set EXECUTION_ATTESTATION_SECRET "$EXECUTION_ATTESTATION_SECRET" --context deploy-preview
+pnpm --package=netlify-cli dlx netlify env:set GITHUB_SYNC_TOKEN "$GITHUB_SYNC_TOKEN" --context deploy-preview
+pnpm --package=netlify-cli dlx netlify env:set AGENT_BRIDGE_SECRET "$AGENT_BRIDGE_SECRET" --context deploy-preview
+pnpm --package=netlify-cli dlx netlify env:set GITHUB_REPOSITORY_OWNER "$GITHUB_REPOSITORY_OWNER" --context deploy-preview
+pnpm --package=netlify-cli dlx netlify env:set GITHUB_REPOSITORY_NAME "$GITHUB_REPOSITORY_NAME" --context deploy-preview
+pnpm --package=netlify-cli dlx netlify env:set GITHUB_SYNC_BRANCH "$GITHUB_SYNC_BRANCH" --context deploy-preview
+pnpm --package=netlify-cli dlx netlify env:set AGENT_ADAPTER "$AGENT_ADAPTER" --context deploy-preview
+pnpm --package=netlify-cli dlx netlify env:set NEXT_PUBLIC_APP_URL "$VALIDATION_APP_URL" --context deploy-preview
+unset AUTH_SECRET VALIDATION_AUTH_GITHUB_SECRET CRON_SECRET EXECUTION_ATTESTATION_SECRET GITHUB_SYNC_TOKEN AGENT_BRIDGE_SECRET
+```
+
+Confirm in the Netlify UI that the provisioned database variable is available to deploy previews. If it is production-only, add the same database to `deploy-preview` scope in the UI without displaying its value.
 
 Build exactly as Netlify will and create a non-production deploy:
 
@@ -117,10 +139,20 @@ pnpm lint
 pnpm tsc --noEmit
 pnpm migration:compare
 pnpm build:netlify
-pnpm dlx netlify-cli deploy --build --alias validation
+pnpm --package=netlify-cli dlx netlify deploy --build --alias validation --context deploy-preview
 ```
 
-Record the deploy ID and HTTPS preview URL. On desktop and a phone, sign in, edit, run, submit, refresh/recover a draft, and finish one algorithm plus one frontend exercise. Confirm the Worker timeout recovery and `AGENT_ADAPTER=mock` review flow. Do not promote if mobile coding, running, or submission is incomplete.
+Record the deploy ID and verify its URL is exactly `https://validation--fe-algorithm-gym.netlify.app`. Sign in as `Junaspark`, then discover the persisted owner ID from the live database without hand-copying arbitrary rows:
+
+```bash
+OWNER_USER_ID="$(DATABASE_URL="$NETLIFY_DB_URL" pnpm --silent tsx scripts/find-owner-user-id.ts)"
+test -n "$OWNER_USER_ID"
+pnpm --package=netlify-cli dlx netlify env:set OWNER_USER_ID "$OWNER_USER_ID" --context deploy-preview
+unset OWNER_USER_ID
+pnpm --package=netlify-cli dlx netlify deploy --build --alias validation --context deploy-preview
+```
+
+The discovery script requires exactly one normalized `Junaspark` row and fails closed otherwise. After redeploy, verify `Junaspark` reaches `/today` and a different GitHub account reaches `/unauthorized`. On desktop and a phone, edit, run, submit, refresh/recover a draft, and finish one algorithm plus one frontend exercise. Confirm the Worker timeout recovery and `AGENT_ADAPTER=mock` review flow. The normal artifact must return 404 for E2E-only login/state routes. Do not promote if any gate fails.
 
 ## 6. Reminder and Codex Automation gate
 
@@ -168,24 +200,42 @@ Before merge, record the verified PR SHA, preview deploy ID, nine-migration coun
 gh pr merge 1 --repo Junaspark/fe-algorithm-notes --merge
 git fetch origin main
 git switch --detach origin/main
-pnpm dlx netlify-cli deploy --prod --build
+pnpm --package=netlify-cli dlx netlify deploy --prod --build --context production
 ```
 
-Smoke-test `/login`, `/today`, a real Worker run, submission, and both cron endpoints. Only after every check passes, change Git sync from `validation/promotion` to `main`:
+Sign in to the production URL as `Junaspark`, discover the production owner row, set it in the production context, and redeploy the same merged SHA:
+
+```bash
+OWNER_USER_ID="$(DATABASE_URL="$NETLIFY_DB_URL" pnpm --silent tsx scripts/find-owner-user-id.ts)"
+pnpm --package=netlify-cli dlx netlify env:set OWNER_USER_ID "$OWNER_USER_ID" --context production
+unset OWNER_USER_ID
+pnpm --package=netlify-cli dlx netlify deploy --prod --build --context production
+```
+
+Verify `Junaspark` reaches `/today`, another account is denied, then smoke-test a real Worker run, submission, and both cron endpoints. Only after every check passes, enable the automations and change Git sync from `validation/promotion` to `main`:
 
 ```bash
 export GITHUB_SYNC_BRANCH=main
-pnpm dlx netlify-cli env:set GITHUB_SYNC_BRANCH "$GITHUB_SYNC_BRANCH" --context production
+pnpm --package=netlify-cli dlx netlify env:set GITHUB_SYNC_BRANCH "$GITHUB_SYNC_BRANCH" --context production
 ```
 
 Record non-secret evidence in `docs/operations/netlify-production-validation.md`.
 
 ## 9. Rollback
 
-On a failed promotion, disable the two Codex automations and Git worker first. Keep the database and `validation/promotion` branch intact. Restore the recorded deploy:
+On a failed promotion, disable the two Codex automations and Git worker first. Keep the database and `validation/promotion` branch intact. The supported operator path is **Netlify UI → Deploys → select the recorded successful deploy → Publish deploy**:
+
+`https://app.netlify.com/projects/fe-algorithm-gym/deploys/`
+
+For an audited API restore, silently read a short-lived Netlify personal access token and call the documented restore endpoint. Neither token nor deploy ID is written literally into history:
 
 ```bash
-pnpm dlx netlify-cli rollback "$ROLLBACK_DEPLOY_ID"
+read -rs 'NETLIFY_AUTH_TOKEN?Netlify token: '
+curl --fail-with-body --silent --show-error --request POST \
+  --header "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+  "https://api.netlify.com/api/v1/sites/901b1baf-beca-4688-b0c8-24d5da2b9a80/deploys/$ROLLBACK_DEPLOY_ID/restore"
+unset NETLIFY_AUTH_TOKEN
+pnpm --package=netlify-cli dlx netlify status
 ```
 
-If the installed CLI exposes rollback through the deploy subcommand, run `pnpm dlx netlify-cli deploy:rollback "$ROLLBACK_DEPLOY_ID"`; confirm the active deploy in `netlify status`. Do not reverse database migrations blindly. Follow `docs/operations/recovery.md`, smoke-test the restored URL, then re-enable schedules only after OAuth and carry-over checks pass.
+Confirm the published deploy ID in the UI. Do not reverse database migrations blindly. Follow `docs/operations/recovery.md`, smoke-test the restored URL, then re-enable schedules only after OAuth and carry-over checks pass.
