@@ -22,13 +22,14 @@ describe('verifyLiveDatabase', () => {
     let release!: () => void
     const bothStarted = new Promise<void>(resolve => { release = resolve })
     const plan = { id: 'probe-plan', status: 'active', items: [] }
+    const received: Array<{ userId: string; localDate: string }> = []
     const repositories = [
       {
-        create: vi.fn(async () => { if (++createCalls === 2) release(); await bothStarted; return plan }),
+        create: vi.fn(async (input: { userId: string; localDate: string }) => { received.push(input); if (++createCalls === 2) release(); await bothStarted; return plan }),
         findActive: vi.fn(async () => plan),
       },
       {
-        create: vi.fn(async () => { if (++createCalls === 2) release(); await bothStarted; throw new Error('ACTIVE_PLAN_EXISTS') }),
+        create: vi.fn(async (input: { userId: string; localDate: string }) => { received.push(input); if (++createCalls === 2) release(); await bothStarted; throw new Error('ACTIVE_PLAN_EXISTS') }),
         findActive: vi.fn(async () => plan),
       },
     ]
@@ -46,6 +47,8 @@ describe('verifyLiveDatabase', () => {
     expect(second.end).toHaveBeenCalledOnce()
     expect(repositories[0].create).toHaveBeenCalledOnce()
     expect(repositories[1].create).toHaveBeenCalledOnce()
+    expect(received[0].userId).toBe(received[1].userId)
+    expect(received[0].localDate).not.toBe(received[1].localDate)
     expect(repositories[0].findActive).toHaveBeenCalledOnce()
     expect(repositories[1].findActive).toHaveBeenCalledOnce()
     expect(first).toHaveBeenCalledTimes(4)
@@ -77,6 +80,27 @@ describe('verifyLiveDatabase', () => {
       createDatabase: vi.fn(value => value),
       createRepository,
     })).rejects.toThrow('ACTIVE_PLAN_CONCURRENCY_GATE_FAILED')
+  })
+
+  it('closes both clients and surfaces a failed probe cleanup', async () => {
+    const first = Object.assign(vi.fn()
+      .mockResolvedValueOnce([{ pid: 101 }])
+      .mockResolvedValueOnce([{ count: 19 }])
+      .mockResolvedValueOnce([{ id: 'algorithm-1', kind: 'algorithm' }, { id: 'frontend-1', kind: 'frontend' }])
+      .mockRejectedValueOnce(new Error('delete unavailable')), { end: vi.fn(async () => undefined) })
+    const second = client([[{ pid: 202 }]])
+    const plan = { id: 'probe-plan', status: 'active', items: [] }
+    const createRepository = vi.fn()
+      .mockReturnValueOnce({ create: vi.fn(async () => plan), findActive: vi.fn(async () => plan) })
+      .mockReturnValueOnce({ create: vi.fn(async () => { throw new Error('ACTIVE_PLAN_EXISTS') }), findActive: vi.fn(async () => plan) })
+
+    await expect(verifyLiveDatabase('postgres://live', {
+      connect: vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second),
+      createDatabase: vi.fn(value => value),
+      createRepository,
+    })).rejects.toThrow('LIVE_PROBE_CLEANUP_FAILED')
+    expect(first.end).toHaveBeenCalledOnce()
+    expect(second.end).toHaveBeenCalledOnce()
   })
 })
 

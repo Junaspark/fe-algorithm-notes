@@ -53,10 +53,12 @@ export async function verifyLiveDatabase(url: string, dependencies: Dependencies
     if (typeof algorithm !== 'string' || typeof frontend !== 'string') throw new Error('LIVE_PROBE_EXERCISES_REQUIRED')
 
     probeUserId = crypto.randomUUID()
-    const input = { userId: probeUserId, localDate: `live-gate-${Date.now()}`, exerciseIds: [algorithm, frontend] }
+    const probeId = Date.now()
+    const firstInput = { userId: probeUserId, localDate: `live-gate-${probeId}-a`, exerciseIds: [algorithm, frontend] }
+    const secondInput = { userId: probeUserId, localDate: `live-gate-${probeId}-b`, exerciseIds: [algorithm, frontend] }
     const firstRepository = createRepository(createDatabase(first))
     const secondRepository = createRepository(createDatabase(second))
-    const results = await Promise.allSettled([firstRepository.create(input), secondRepository.create(input)])
+    const results = await Promise.allSettled([firstRepository.create(firstInput), secondRepository.create(secondInput)])
     const successes = results.filter((result): result is PromiseFulfilledResult<ProbePlan> => result.status === 'fulfilled')
     const conflicts = results.filter(result => result.status === 'rejected' && result.reason instanceof Error && result.reason.message === 'ACTIVE_PLAN_EXISTS')
     if (successes.length !== 1 || conflicts.length !== 1) throw new Error('ACTIVE_PLAN_CONCURRENCY_GATE_FAILED')
@@ -71,8 +73,14 @@ export async function verifyLiveDatabase(url: string, dependencies: Dependencies
 
     return { firstPid, secondPid, exerciseCount, concurrency: 'ACTIVE_PLAN_EXISTS' as const }
   } finally {
-    if (probeUserId) await first`delete from daily_plans where user_id = ${probeUserId}`
+    let cleanupError: unknown
+    try {
+      if (probeUserId) await first`delete from daily_plans where user_id = ${probeUserId}`
+    } catch (error) {
+      cleanupError = error
+    }
     await Promise.allSettled([first.end(), second.end()])
+    if (cleanupError) throw new Error('LIVE_PROBE_CLEANUP_FAILED', { cause: cleanupError })
   }
 }
 
