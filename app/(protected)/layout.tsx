@@ -8,7 +8,7 @@ import { authorizeGitHubUser } from '@/domain/auth/authorize-github-user'
 export default async function ProtectedLayout({ children }: Readonly<{ children: ReactNode }>) {
   const session = await auth()
 
-  if (!session) {
+  if (!session?.user) {
     redirect('/login')
   }
 

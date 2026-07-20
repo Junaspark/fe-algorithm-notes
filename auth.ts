@@ -68,6 +68,7 @@ githubProvider.profile = mapGitHubProfile
 
 export const authConfig = {
   secret: env.AUTH_SECRET,
+  trustHost: true,
   adapter: DrizzleAdapter(db, {
     usersTable: users,
     accountsTable: accounts,

@@ -38,6 +38,10 @@ const githubProfile = {
 describe('Auth.js GitHub configuration', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('trusts the host forwarded by the Netlify proxy', () => {
+    expect(authConfig.trustHost).toBe(true)
+  })
+
   it('maps the raw provider login to the normalized adapter user property', () => {
     expect(mapGitHubProfile(githubProfile)).toMatchObject({
       id: '42',
