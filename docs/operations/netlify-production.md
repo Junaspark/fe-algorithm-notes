@@ -83,6 +83,8 @@ Check the linked database and prepare the twelve canonical migrations. `drizzle/
 
 The twelve SQL snapshots in `netlify/database/migrations/` are checked in because Netlify reads and applies them before the build command. They must already match `drizzle/` byte-for-byte in the deployed commit. `pnpm build:netlify` only verifies/prepares those files and runs `next build`; it never opens a database connection in a local, CLI, preview, branch, or production build. If exercise JSON changes intentionally, run `pnpm exercise:migration` once: it selects the next unused four-digit migration number and refuses to overwrite history. The migration archives rows absent from the canonical 19 by setting `active=false`, then upserts the current catalog as active. Archived rows remain addressable by historical plans, submissions, drafts, and reviews, but library and future plan selection exclude them. Review and commit the JSON, new canonical SQL, Drizzle journal entry, and regenerated Netlify snapshots together. CI rejects uncovered JSON drift and migration byte drift.
 
+Next sets `NEXT_PHASE=phase-production-build` while compiling. If a Netlify deploy has not injected its branch database URL into that build process, application configuration uses a non-routable build-only sentinel so static compilation can finish; no build step connects to it. The exception is unavailable in production-server, development, CLI migration, and ordinary runtime phases, where a missing `DATABASE_URL` or `NETLIFY_DB_URL` still fails immediately. Runtime functions therefore still require the branch database binding.
+
 ```bash
 pnpm --package=netlify-cli dlx netlify db status
 pnpm netlify:migrations
