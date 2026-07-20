@@ -71,6 +71,20 @@
       "when": 1784510000000,
       "tag": "0009_seed_exercises",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784511000000,
+      "tag": "0010_exercise_catalog_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784512000000,
+      "tag": "0011_sync_exercises",
+      "breakpoints": true
     }
   ]
 }

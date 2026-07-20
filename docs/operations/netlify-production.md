@@ -79,19 +79,18 @@ Verify key names and scopes in **Netlify UI → Project configuration → Enviro
 
 ## 3. Netlify Database and migrations
 
-Check the linked database and prepare the ten canonical migrations. `drizzle/` is the canonical migration source. The final migration, `0009_seed_exercises.sql`, is deterministic data SQL generated from exactly 19 canonical exercises in `exercises/*.json`.
+Check the linked database and prepare the twelve canonical migrations. `drizzle/` is the canonical migration source. `0009_seed_exercises.sql` is an immutable, already-applied baseline. `0010_exercise_catalog_state.sql` adds catalog lifecycle state, and the latest monotonic `*_sync_exercises.sql` migration deterministically represents exactly 19 canonical exercises in `exercises/*.json`.
 
-The ten SQL snapshots in `netlify/database/migrations/` are checked in because Netlify reads and applies them before the build command. They must already match `drizzle/` byte-for-byte in the deployed commit. `pnpm build:netlify` only verifies/prepares those files and runs `next build`; it never opens a database connection in a local, CLI, preview, branch, or production build. If an exercise JSON file changes intentionally, regenerate and review the canonical data migration with `pnpm exercise:migration`, then commit the JSON, canonical SQL, and Netlify snapshot together. CI rejects JSON drift and migration byte drift.
+The twelve SQL snapshots in `netlify/database/migrations/` are checked in because Netlify reads and applies them before the build command. They must already match `drizzle/` byte-for-byte in the deployed commit. `pnpm build:netlify` only verifies/prepares those files and runs `next build`; it never opens a database connection in a local, CLI, preview, branch, or production build. If exercise JSON changes intentionally, run `pnpm exercise:migration` once: it selects the next unused four-digit migration number and refuses to overwrite history. The migration archives rows absent from the canonical 19 by setting `active=false`, then upserts the current catalog as active. Archived rows remain addressable by historical plans, submissions, drafts, and reviews, but library and future plan selection exclude them. Review and commit the JSON, new canonical SQL, Drizzle journal entry, and regenerated Netlify snapshots together. CI rejects uncovered JSON drift and migration byte drift.
 
 ```bash
 pnpm --package=netlify-cli dlx netlify db status
-pnpm exercise:migration
 pnpm netlify:migrations
-test "$(find netlify/database/migrations -type f -name '*.sql' | wc -l | tr -d ' ')" = 10
+test "$(find netlify/database/migrations -type f -name '*.sql' | wc -l | tr -d ' ')" = 12
 git diff --exit-code -- drizzle netlify/database/migrations
 ```
 
-If no database is attached, provision Netlify Database for the linked site through the Netlify UI/CLI, then rerun `netlify db status`. Netlify applies all ten migrations, including the idempotent exercise upsert, before it starts the build. For an explicit operator-managed recovery or local database, apply the same migration set with the database URL injected by the secret manager:
+If no database is attached, provision Netlify Database for the linked site through the Netlify UI/CLI, then rerun `netlify db status`. Netlify applies all twelve migrations, including the idempotent active-catalog sync, before it starts the build. For an explicit operator-managed recovery or local database, apply the same migration set with the database URL injected by the secret manager:
 
 ```bash
 DATABASE_URL="$NETLIFY_DB_URL" pnpm db:migrate
@@ -199,7 +198,7 @@ The diff may contain files only under `exercises/`, `solutions/`, and `reports/`
 
 ## 8. Promotion
 
-Before merge, record the verified PR SHA, preview deploy ID, ten-migration count, exercise count 19, both Codex Automation IDs, validation Git SHA, and current production deploy ID as the rollback target. Obtain owner approval, then merge PR #1 and deploy that exact merged SHA:
+Before merge, record the verified PR SHA, preview deploy ID, twelve-migration count, active exercise count 19, both Codex Automation IDs, validation Git SHA, and current production deploy ID as the rollback target. Obtain owner approval, then merge PR #1 and deploy that exact merged SHA:
 
 ```bash
 gh pr merge 1 --repo Junaspark/fe-algorithm-notes --merge

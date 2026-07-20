@@ -60,7 +60,7 @@ describe('prepareNetlifyMigrations', () => {
 
   it('makes CI reject changed and untracked regenerated snapshots', async () => {
     const workflow = await readFile('.github/workflows/ci.yml', 'utf8')
-    expect(workflow).toContain('git diff --exit-code -- drizzle/0009_seed_exercises.sql netlify/database/migrations')
-    expect(workflow).toContain('git status --porcelain --untracked-files=all -- drizzle/0009_seed_exercises.sql netlify/database/migrations')
+    expect(workflow).toContain('git diff --exit-code -- drizzle netlify/database/migrations')
+    expect(workflow).toContain('git status --porcelain --untracked-files=all -- drizzle netlify/database/migrations')
   })
 })

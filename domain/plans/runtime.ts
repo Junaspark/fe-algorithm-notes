@@ -15,13 +15,13 @@ const one = async (query: PromiseLike<readonly Record<string, unknown>[]>): Prom
 
 const source: SelectionSource = {
   findDueReview({ userId, now }: SelectionProfile, kind: ExerciseKind) {
-    return one(sqlClient`select e.id, e.kind from reviews r join exercises e on e.id = r.exercise_id where r.user_id = ${userId} and r.status = 'pending' and r.due_at <= ${now} and e.kind = ${kind} order by r.due_at, r.created_at limit 1`)
+    return one(sqlClient`select e.id, e.kind from reviews r join exercises e on e.id = r.exercise_id where r.user_id = ${userId} and r.status = 'pending' and r.due_at <= ${now} and e.kind = ${kind} and e.active = true order by r.due_at, r.created_at limit 1`)
   },
   findWeakTopic({ userId }: SelectionProfile, kind: ExerciseKind) {
-    return one(sqlClient`select e.id, e.kind from exercises e where e.kind = ${kind} and jsonb_array_length(coalesce(e.content->'legacy'->'mistakes', '[]'::jsonb)) > 0 and not exists (select 1 from submissions s where s.user_id = ${userId} and s.exercise_id = e.id and s.status = 'passed') order by e.id limit 1`)
+    return one(sqlClient`select e.id, e.kind from exercises e where e.kind = ${kind} and e.active = true and jsonb_array_length(coalesce(e.content->'legacy'->'mistakes', '[]'::jsonb)) > 0 and not exists (select 1 from submissions s where s.user_id = ${userId} and s.exercise_id = e.id and s.status = 'passed') order by e.id limit 1`)
   },
   findUnseen({ userId }: SelectionProfile, kind: ExerciseKind) {
-    return one(sqlClient`select e.id, e.kind from exercises e where e.kind = ${kind} and not exists (select 1 from submissions s where s.user_id = ${userId} and s.exercise_id = e.id) order by e.id limit 1`)
+    return one(sqlClient`select e.id, e.kind from exercises e where e.kind = ${kind} and e.active = true and not exists (select 1 from submissions s where s.user_id = ${userId} and s.exercise_id = e.id) order by e.id limit 1`)
   },
 }
 

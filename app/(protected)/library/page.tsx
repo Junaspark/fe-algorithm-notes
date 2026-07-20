@@ -13,7 +13,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
   const e2e = (await import('@/domain/e2e/state')).e2eEnabled()
   const [search, rows, submissionRows, reviewRows] = e2e ? [await searchParams, (await import('@/domain/e2e/state')).getE2EState().exercises.map(x => ({ ...x, version: 1, createdAt: new Date(), updatedAt: new Date() })), [], []] as never : await Promise.all([
     searchParams,
-    db.select().from(exercises),
+    db.select().from(exercises).where(eq(exercises.active, true)),
     db.select({ exerciseId: submissions.exerciseId, status: submissions.status }).from(submissions).where(eq(submissions.userId, userId)).limit(2000),
     db.select({ exerciseId: reviews.exerciseId }).from(reviews).where(and(eq(reviews.userId, userId), eq(reviews.status, 'pending'))).limit(500),
   ])

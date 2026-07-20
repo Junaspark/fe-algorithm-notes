@@ -37,7 +37,7 @@ describe('PostgreSQL repositories', () => {
     db = drizzle(client, { schema })
     const migration = await readFile(path.join(process.cwd(), 'drizzle/0000_silky_juggernaut.sql'), 'utf8')
     await client.exec(migration.replaceAll('--> statement-breakpoint', ''))
-    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql', '0005_git_sync_leases.sql', '0006_submission_duration.sql', '0007_daily_plan_mode.sql', '0008_execution_attestations.sql']) {
+    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql', '0005_git_sync_leases.sql', '0006_submission_duration.sql', '0007_daily_plan_mode.sql', '0008_execution_attestations.sql', '0010_exercise_catalog_state.sql']) {
       await client.exec((await readFile(path.join(process.cwd(), 'drizzle', name), 'utf8')).replaceAll('--> statement-breakpoint', ''))
     }
     await db.insert(schema.exercises).values([
@@ -83,6 +83,15 @@ describe('PostgreSQL repositories', () => {
     expect(first.items.map(({ exerciseId }) => exerciseId)).toEqual(['a', 'b'])
     expect(v1.version).toBe(1)
     await expect(drafts.find(userId, 'a')).resolves.toMatchObject({ code: 'v1', version: 1 })
+  })
+
+  it('does not create a new plan from an archived exercise', async () => {
+    await db.update(schema.exercises).set({ active: false }).where(eq(schema.exercises.id, 'a'))
+    await expect(createPlanRepository(db).create({
+      userId: '00000000-0000-4000-8000-000000000099',
+      localDate: '2026-07-20',
+      exerciseIds: ['a', 'b'],
+    })).rejects.toThrow('PLAN_REQUIRES_ALGORITHM_AND_FRONTEND')
   })
 
   it('marks an item complete and completes the plan only after both items pass', async () => {

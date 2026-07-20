@@ -51,7 +51,7 @@ export function createPlanRepository<TQuery extends PgQueryResultHKT>(db: Databa
       if (input.exerciseIds.length !== 2) throw new Error('PLAN_REQUIRES_TWO_EXERCISES')
       try {
         return await db.transaction(async (tx) => {
-          const kinds = await tx.select({ id: schema.exercises.id, kind: schema.exercises.kind }).from(schema.exercises).where(sql`${schema.exercises.id} in ${input.exerciseIds}`)
+          const kinds = await tx.select({ id: schema.exercises.id, kind: schema.exercises.kind }).from(schema.exercises).where(and(sql`${schema.exercises.id} in ${input.exerciseIds}`, eq(schema.exercises.active, true)))
           if (kinds.length !== 2 || new Set(kinds.map(({ kind }) => kind)).size !== 2) throw new Error('PLAN_REQUIRES_ALGORITHM_AND_FRONTEND')
           const [plan] = await tx.insert(schema.dailyPlans).values({ userId: input.userId, localDate: input.localDate, mode: input.mode ?? 'practice' }).returning()
           await tx.insert(schema.planItems).values(input.exerciseIds.map((exerciseId, position) => ({ planId: plan.id, exerciseId, position })))

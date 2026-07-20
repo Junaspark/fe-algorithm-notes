@@ -75,6 +75,7 @@ export const exercises = pgTable('exercises', {
   kind: exerciseKind('kind').notNull(),
   version: integer('version').notNull().default(1),
   content: jsonb('content').$type<Exercise>().notNull(),
+  active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

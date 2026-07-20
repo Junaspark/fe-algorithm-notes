@@ -43,11 +43,11 @@ export async function verifyLiveDatabase(url: string, dependencies: Dependencies
       throw new Error('INDEPENDENT_DATABASE_CONNECTIONS_REQUIRED')
     }
 
-    const [seed] = await first`select count(*)::integer as count from exercises`
+    const [seed] = await first`select count(*)::integer as count from exercises where active = true`
     const exerciseCount = Number(seed?.count)
     if (exerciseCount !== 19) throw new Error(`EXPECTED_19_EXERCISES: received ${exerciseCount}`)
 
-    const exercises = await first`select id, kind from exercises where kind in ('algorithm', 'frontend') order by id`
+    const exercises = await first`select id, kind from exercises where active = true and kind in ('algorithm', 'frontend') order by id`
     const algorithm = exercises.find(row => row.kind === 'algorithm')?.id
     const frontend = exercises.find(row => row.kind === 'frontend')?.id
     if (typeof algorithm !== 'string' || typeof frontend !== 'string') throw new Error('LIVE_PROBE_EXERCISES_REQUIRED')
