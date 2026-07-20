@@ -12,7 +12,7 @@
     "db:migrate": "drizzle-kit migrate",
     "seed": "tsx scripts/seed.ts",
     "netlify:migrations": "tsx scripts/prepare-netlify-migrations.ts",
-    "build:netlify": "pnpm netlify:migrations && next build",
+    "build:netlify": "tsx scripts/build-netlify.ts",
     "migration:compare": "node --import tsx scripts/compare-legacy-migration.ts",
     "migration:run": "node --import tsx scripts/migrate-legacy-data.ts"
   },

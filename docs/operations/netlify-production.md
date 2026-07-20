@@ -81,11 +81,13 @@ Verify key names and scopes in **Netlify UI → Project configuration → Enviro
 
 Check the linked database and prepare the nine canonical migrations. `drizzle/` is the only editable migration source.
 
+The nine generated SQL snapshots in `netlify/database/migrations/` are checked in because Netlify reads them during pre-build database setup. They must already match `drizzle/` in the deployed commit; generation inside `build:netlify` verifies/prepares them for a subsequent deploy and cannot change the migration input of the deploy already in progress. During a real Netlify build (`NETLIFY=true`), after Netlify's pre-build migration phase has injected the branch database credentials, the command runs the idempotent `pnpm seed` before `next build`. Outside Netlify it deliberately skips the seed, preserving local and offline build verification without requiring a live database.
+
 ```bash
 pnpm --package=netlify-cli dlx netlify db status
 pnpm netlify:migrations
 test "$(find netlify/database/migrations -type f -name '*.sql' | wc -l | tr -d ' ')" = 9
-git diff --exit-code -- drizzle
+git diff --exit-code -- drizzle netlify/database/migrations
 ```
 
 If no database is attached, provision Netlify Database for the linked site through the Netlify UI/CLI, then rerun `netlify db status`. Apply and seed with the production database URL injected into the operator shell by the secret manager:

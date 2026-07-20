@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "git_sync_jobs_plan_once" ON "git_sync_jobs" USING btree ("plan_id");

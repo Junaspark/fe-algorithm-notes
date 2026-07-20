@@ -20,6 +20,10 @@ jobs:
       - run: pnpm migration:compare
       - run: pnpm netlify:migrations
       - run: pnpm vitest run tests/deployment/netlify-migrations.test.ts
+      - name: Require committed Netlify migrations to match canonical Drizzle SQL
+        run: |
+          git diff --exit-code -- netlify/database/migrations
+          test -z "$(git status --porcelain --untracked-files=all -- netlify/database/migrations)"
       - name: Build publishable production artifact (E2E seams compiled out)
         run: pnpm build:netlify
         env:
