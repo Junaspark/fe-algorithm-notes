@@ -2,7 +2,7 @@
 
 This application is provider-neutral. Record the selected application, PostgreSQL, scheduler, and secret-manager providers in the deployment change ticket; this repository does not require a hosting vendor.
 
-For the selected Netlify production site, use the executable provider-specific checklist in [`docs/operations/netlify-production.md`](./netlify-production.md). It fixes the site ID, OAuth URLs, migration/seed gates, preview promotion, Codex Automation evidence, validation-branch Git sync, and rollback procedure while this document remains the provider-neutral baseline.
+For the selected Netlify production site, use the executable provider-specific checklist in [`docs/operations/netlify-production.md`](./netlify-production.md). It fixes the site ID, OAuth URLs, schema/data migration gates, preview promotion, Codex Automation evidence, validation-branch Git sync, and rollback procedure while this document remains the provider-neutral baseline.
 
 ## Required environment
 
@@ -10,16 +10,15 @@ Set server-only secrets in the chosen secret manager: `DATABASE_URL`, `AUTH_SECR
 
 Create the GitHub OAuth application with callback URL `<NEXT_PUBLIC_APP_URL>/api/auth/callback/github`. Confirm the authenticated profile login is `Junaspark`; a second account must reach `/unauthorized`.
 
-## Database and seed gate
+## Database migration gate
 
 Provision PostgreSQL with TLS, backups, point-in-time recovery, and a least-privilege application role. Against staging first:
 
 ```bash
 pnpm db:migrate
-pnpm seed
 ```
 
-The seed must report 19 exercises. Run repository concurrency integration tests against two independent live PostgreSQL connections before production promotion; the in-process PGlite suite is not a substitute for this gate.
+The canonical migration set includes the deterministic SQL upsert for exactly 19 exercises. Run repository concurrency integration tests against two independent live PostgreSQL connections before production promotion; the in-process PGlite suite is not a substitute for this gate.
 
 ## Schedules
 

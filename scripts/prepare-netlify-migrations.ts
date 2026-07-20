@@ -2,12 +2,15 @@ import { copyFile, mkdir, readFile, readdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+import { verifyExerciseDataMigration } from './generate-exercise-data-migration'
+
 export async function prepareNetlifyMigrations(options: {
   source?: string
   destination?: string
 } = {}): Promise<string[]> {
   const source = options.source ?? 'drizzle'
   const destination = options.destination ?? 'netlify/database/migrations'
+  if (source === 'drizzle') await verifyExerciseDataMigration()
   const names = (await readdir(source))
     .filter((name) => /^\d{4}_.+\.sql$/.test(name))
     .sort()

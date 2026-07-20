@@ -18,12 +18,13 @@ jobs:
       - run: pnpm tsc --noEmit
       - run: pnpm test
       - run: pnpm migration:compare
+      - run: pnpm vitest run tests/deployment/exercise-data-migration.test.ts
       - run: pnpm netlify:migrations
       - run: pnpm vitest run tests/deployment/netlify-migrations.test.ts
-      - name: Require committed Netlify migrations to match canonical Drizzle SQL
+      - name: Require committed exercise data and Netlify migrations to match their canonical sources
         run: |
-          git diff --exit-code -- netlify/database/migrations
-          test -z "$(git status --porcelain --untracked-files=all -- netlify/database/migrations)"
+          git diff --exit-code -- drizzle/0009_seed_exercises.sql netlify/database/migrations
+          test -z "$(git status --porcelain --untracked-files=all -- drizzle/0009_seed_exercises.sql netlify/database/migrations)"
       - name: Build publishable production artifact (E2E seams compiled out)
         run: pnpm build:netlify
         env:

@@ -2,7 +2,7 @@
 
 ## Application and database rollback
 
-Stop schedulers first. Roll back the application to the previously recorded artifact without reversing a database migration blindly. Restore PostgreSQL from the latest verified backup or point-in-time recovery target only after exporting the affected rows for audit. Run `pnpm seed` idempotently after recovery and verify the canonical count remains 19.
+Stop schedulers first. Roll back the application to the previously recorded artifact without reversing a database migration blindly. Restore PostgreSQL from the latest verified backup or point-in-time recovery target only after exporting the affected rows for audit. Reapply the committed migration set after recovery and verify the canonical exercise count remains 19.
 
 ## Queue replay
 

@@ -10,8 +10,8 @@ it('documents every production gate without embedding secret values', async () =
     '/api/auth/callback/github',
     'validation/promotion',
     'pnpm db:migrate',
-    'pnpm seed',
-    '19 exercises upserted',
+    '0009_seed_exercises.sql',
+    '19 canonical exercises',
     '09:30',
     '20:00',
     'Junaspark',
@@ -28,6 +28,8 @@ it('documents every production gate without embedding secret values', async () =
   expect(text).not.toMatch(/netlify-cli (?:rollback|deploy:rollback)/)
   expect(text).not.toContain('env:list')
   expect(text).not.toContain('LIVE_DATABASE_URL')
+  expect(text).not.toContain('NETLIFY_DEPLOY_BUILD')
+  expect(text).not.toContain('pnpm seed')
 
   const netlifyCommands = text.match(/^pnpm .*netlify (?:login|status|link|env:set|db status|deploy).*$/gm) ?? []
   expect(netlifyCommands.length).toBeGreaterThan(10)

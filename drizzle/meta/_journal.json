@@ -64,6 +64,13 @@
       "when": 1784252000000,
       "tag": "0008_execution_attestations",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784510000000,
+      "tag": "0009_seed_exercises",
+      "breakpoints": true
     }
   ]
 }

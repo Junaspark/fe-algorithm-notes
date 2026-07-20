@@ -18,5 +18,5 @@ export default defineConfig([
       '@typescript-eslint/no-require-imports': 'off',
     },
   },
-  globalIgnores(['.next/**', 'coverage/**', 'node_modules/**']),
+  globalIgnores(['.next/**', '.netlify/**', 'coverage/**', 'node_modules/**']),
 ])

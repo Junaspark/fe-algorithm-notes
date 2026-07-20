@@ -11,6 +11,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "seed": "tsx scripts/seed.ts",
+    "exercise:migration": "tsx scripts/generate-exercise-data-migration.ts",
     "netlify:migrations": "tsx scripts/prepare-netlify-migrations.ts",
     "build:netlify": "tsx scripts/build-netlify.ts",
     "migration:compare": "node --import tsx scripts/compare-legacy-migration.ts",

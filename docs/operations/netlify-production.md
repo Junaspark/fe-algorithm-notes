@@ -77,27 +77,27 @@ unset AUTH_SECRET AUTH_GITHUB_SECRET CRON_SECRET EXECUTION_ATTESTATION_SECRET GI
 
 Verify key names and scopes in **Netlify UI → Project configuration → Environment variables**; do not use a CLI command that prints values. `DATABASE_URL` remains the portable override; never define it and `NETLIFY_DB_URL` with different databases.
 
-## 3. Netlify Database, migrations, and seed
+## 3. Netlify Database and migrations
 
-Check the linked database and prepare the nine canonical migrations. `drizzle/` is the only editable migration source.
+Check the linked database and prepare the ten canonical migrations. `drizzle/` is the canonical migration source. The final migration, `0009_seed_exercises.sql`, is deterministic data SQL generated from exactly 19 canonical exercises in `exercises/*.json`.
 
-The nine generated SQL snapshots in `netlify/database/migrations/` are checked in because Netlify reads them during pre-build database setup. They must already match `drizzle/` in the deployed commit; generation inside `build:netlify` verifies/prepares them for a subsequent deploy and cannot change the migration input of the deploy already in progress. After the pre-build migration phase has injected the branch database credentials, `build:netlify` runs the idempotent `pnpm seed` before `next build`. It recognizes Netlify cloud builds automatically; CLI deploys must use the non-secret `NETLIFY_DEPLOY_BUILD=true` marker shown below with a recognized deploy context. Plain local/offline `pnpm build:netlify` and ordinary `netlify build --context ...` deliberately skip the seed. Its single diagnostic line contains only the seed decision, normalized deploy context, and source classification; it never prints environment values or credentials.
+The ten SQL snapshots in `netlify/database/migrations/` are checked in because Netlify reads and applies them before the build command. They must already match `drizzle/` byte-for-byte in the deployed commit. `pnpm build:netlify` only verifies/prepares those files and runs `next build`; it never opens a database connection in a local, CLI, preview, branch, or production build. If an exercise JSON file changes intentionally, regenerate and review the canonical data migration with `pnpm exercise:migration`, then commit the JSON, canonical SQL, and Netlify snapshot together. CI rejects JSON drift and migration byte drift.
 
 ```bash
 pnpm --package=netlify-cli dlx netlify db status
+pnpm exercise:migration
 pnpm netlify:migrations
-test "$(find netlify/database/migrations -type f -name '*.sql' | wc -l | tr -d ' ')" = 9
+test "$(find netlify/database/migrations -type f -name '*.sql' | wc -l | tr -d ' ')" = 10
 git diff --exit-code -- drizzle netlify/database/migrations
 ```
 
-If no database is attached, provision Netlify Database for the linked site through the Netlify UI/CLI, then rerun `netlify db status`. Apply and seed with the production database URL injected into the operator shell by the secret manager:
+If no database is attached, provision Netlify Database for the linked site through the Netlify UI/CLI, then rerun `netlify db status`. Netlify applies all ten migrations, including the idempotent exercise upsert, before it starts the build. For an explicit operator-managed recovery or local database, apply the same migration set with the database URL injected by the secret manager:
 
 ```bash
 DATABASE_URL="$NETLIFY_DB_URL" pnpm db:migrate
-DATABASE_URL="$NETLIFY_DB_URL" pnpm seed
 ```
 
-The seed command must print `19 exercises upserted`. Run the purpose-built live gate; it opens two separate `postgres` clients and Drizzle databases, requires different `pg_backend_pid()` values, and concurrently calls the production `createPlanRepository` transaction from both connections for one probe owner. Exactly one transaction must commit, the other must surface the repository's retryable `ACTIVE_PLAN_EXISTS` boundary, and both repositories must then read the same active plan. The gate verifies all 19 exercises, deletes its probe plan through the schema's cascade, and closes both clients. The URL remains a shell variable and the script never prints it.
+Run the purpose-built live gate after migration application. It requires exactly 19 canonical exercises, opens two separate `postgres` clients and Drizzle databases, requires different `pg_backend_pid()` values, and concurrently calls the production `createPlanRepository` transaction from both connections for one probe owner. Exactly one transaction must commit, the other must surface the repository's retryable `ACTIVE_PLAN_EXISTS` boundary, and both repositories must then read the same active plan. The gate deletes its probe plan through the schema's cascade and closes both clients. The URL remains a shell variable and the script never prints it.
 
 ```bash
 DATABASE_URL="$NETLIFY_DB_URL" pnpm tsx scripts/verify-live-database.ts
@@ -143,7 +143,7 @@ pnpm lint
 pnpm tsc --noEmit
 pnpm migration:compare
 pnpm build:netlify
-NETLIFY_DEPLOY_BUILD=true pnpm --package=netlify-cli dlx netlify deploy --build --alias validation --context deploy-preview
+pnpm --package=netlify-cli dlx netlify deploy --build --alias validation --context deploy-preview
 ```
 
 Record the deploy ID and verify its URL is exactly `https://validation--fe-algorithm-gym.netlify.app`. Sign in as `Junaspark`, then discover the persisted owner ID from the live database without hand-copying arbitrary rows:
@@ -153,7 +153,7 @@ OWNER_USER_ID="$(DATABASE_URL="$NETLIFY_DB_URL" pnpm --silent tsx scripts/find-o
 test -n "$OWNER_USER_ID"
 pnpm --package=netlify-cli dlx netlify env:set OWNER_USER_ID "$OWNER_USER_ID" --context deploy-preview
 unset OWNER_USER_ID
-NETLIFY_DEPLOY_BUILD=true pnpm --package=netlify-cli dlx netlify deploy --build --alias validation --context deploy-preview
+pnpm --package=netlify-cli dlx netlify deploy --build --alias validation --context deploy-preview
 ```
 
 The discovery script requires exactly one normalized `Junaspark` row and fails closed otherwise. After redeploy, verify `Junaspark` reaches `/today` and a different GitHub account reaches `/unauthorized`. On desktop and a phone, edit, run, submit, refresh/recover a draft, and finish one algorithm plus one frontend exercise. Confirm the Worker timeout recovery and `AGENT_ADAPTER=mock` review flow. The normal artifact must return 404 for E2E-only login/state routes. Do not promote if any gate fails.
@@ -199,13 +199,13 @@ The diff may contain files only under `exercises/`, `solutions/`, and `reports/`
 
 ## 8. Promotion
 
-Before merge, record the verified PR SHA, preview deploy ID, nine-migration count, seed count 19, both Codex Automation IDs, validation Git SHA, and current production deploy ID as the rollback target. Obtain owner approval, then merge PR #1 and deploy that exact merged SHA:
+Before merge, record the verified PR SHA, preview deploy ID, ten-migration count, exercise count 19, both Codex Automation IDs, validation Git SHA, and current production deploy ID as the rollback target. Obtain owner approval, then merge PR #1 and deploy that exact merged SHA:
 
 ```bash
 gh pr merge 1 --repo Junaspark/fe-algorithm-notes --merge
 git fetch origin main
 git switch --detach origin/main
-NETLIFY_DEPLOY_BUILD=true pnpm --package=netlify-cli dlx netlify deploy --prod --build --context production
+pnpm --package=netlify-cli dlx netlify deploy --prod --build --context production
 ```
 
 Sign in to the production URL as `Junaspark`, discover the production owner row, set it in the production context, and redeploy the same merged SHA:
@@ -214,7 +214,7 @@ Sign in to the production URL as `Junaspark`, discover the production owner row,
 OWNER_USER_ID="$(DATABASE_URL="$NETLIFY_DB_URL" pnpm --silent tsx scripts/find-owner-user-id.ts)"
 pnpm --package=netlify-cli dlx netlify env:set OWNER_USER_ID "$OWNER_USER_ID" --context production
 unset OWNER_USER_ID
-NETLIFY_DEPLOY_BUILD=true pnpm --package=netlify-cli dlx netlify deploy --prod --build --context production
+pnpm --package=netlify-cli dlx netlify deploy --prod --build --context production
 ```
 
 Verify `Junaspark` reaches `/today`, another account is denied, then smoke-test a real Worker run, submission, and both production cron endpoints manually. After those production gates pass, Switch both automation endpoint URLs to production (`https://fe-algorithm-gym.netlify.app/api/cron/morning` and `/api/cron/evening`), reload the production `CRON_SECRET` from the password manager into their secret store, and use **Run now** once more. Require visible desktop/mobile delivery from the production endpoints before changing schedule state. Enable both schedules only after this production notification check succeeds. Finally change Git sync from `validation/promotion` to `main`:
