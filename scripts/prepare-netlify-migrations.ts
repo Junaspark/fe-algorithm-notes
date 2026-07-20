@@ -18,6 +18,9 @@ export async function prepareNetlifyMigrations(options: {
   if (names.length === 0) {
     throw new Error(`No canonical SQL migrations found in ${source}`)
   }
+  if (names.some((name, index) => Number(name.slice(0, 4)) !== index + 1)) {
+    throw new Error('Canonical migration versions must be positive and contiguous from 0001')
+  }
 
   await rm(destination, { recursive: true, force: true })
   await mkdir(destination, { recursive: true })

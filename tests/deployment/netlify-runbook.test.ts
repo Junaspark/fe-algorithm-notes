@@ -10,7 +10,7 @@ it('documents every production gate without embedding secret values', async () =
     '/api/auth/callback/github',
     'validation/promotion',
     'pnpm db:migrate',
-    '0009_seed_exercises.sql',
+    '0010_seed_exercises.sql',
     '19 canonical exercises',
     '09:30',
     '20:00',

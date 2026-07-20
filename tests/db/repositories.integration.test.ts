@@ -35,9 +35,9 @@ describe('PostgreSQL repositories', () => {
   beforeEach(async () => {
     client = new PGlite()
     db = drizzle(client, { schema })
-    const migration = await readFile(path.join(process.cwd(), 'drizzle/0000_silky_juggernaut.sql'), 'utf8')
+    const migration = await readFile(path.join(process.cwd(), 'drizzle/0001_silky_juggernaut.sql'), 'utf8')
     await client.exec(migration.replaceAll('--> statement-breakpoint', ''))
-    for (const name of ['0002_rich_raider.sql', '0003_lucky_phil_sheldon.sql', '0004_agent_job_leases.sql', '0005_git_sync_leases.sql', '0006_submission_duration.sql', '0007_daily_plan_mode.sql', '0008_execution_attestations.sql', '0010_exercise_catalog_state.sql']) {
+    for (const name of ['0003_rich_raider.sql', '0004_lucky_phil_sheldon.sql', '0005_agent_job_leases.sql', '0006_git_sync_leases.sql', '0007_submission_duration.sql', '0008_daily_plan_mode.sql', '0009_execution_attestations.sql', '0011_exercise_catalog_state.sql']) {
       await client.exec((await readFile(path.join(process.cwd(), 'drizzle', name), 'utf8')).replaceAll('--> statement-breakpoint', ''))
     }
     await db.insert(schema.exercises).values([
@@ -255,17 +255,17 @@ describe('PostgreSQL repositories', () => {
     const legacyClient = new PGlite()
 
     try {
-      const base = await readFile(path.join(process.cwd(), 'drizzle/0000_silky_juggernaut.sql'), 'utf8')
+      const base = await readFile(path.join(process.cwd(), 'drizzle/0001_silky_juggernaut.sql'), 'utf8')
       await legacyClient.exec(base.replaceAll('--> statement-breakpoint', ''))
       await legacyClient.exec(`
         INSERT INTO agent_jobs (user_id, payload_version, payload)
         VALUES ('00000000-0000-4000-8000-000000000010', 1, '{}')
       `)
-      await legacyClient.exec(await readFile(path.join(process.cwd(), 'drizzle/0002_rich_raider.sql'), 'utf8'))
-      const associationMigration = await readFile(path.join(process.cwd(), 'drizzle/0003_lucky_phil_sheldon.sql'), 'utf8')
+      await legacyClient.exec(await readFile(path.join(process.cwd(), 'drizzle/0003_rich_raider.sql'), 'utf8'))
+      const associationMigration = await readFile(path.join(process.cwd(), 'drizzle/0004_lucky_phil_sheldon.sql'), 'utf8')
       await legacyClient.exec(associationMigration.replaceAll('--> statement-breakpoint', ''))
-      await legacyClient.exec((await readFile(path.join(process.cwd(), 'drizzle/0004_agent_job_leases.sql'), 'utf8')).replaceAll('--> statement-breakpoint', ''))
-      await legacyClient.exec((await readFile(path.join(process.cwd(), 'drizzle/0005_git_sync_leases.sql'), 'utf8')).replaceAll('--> statement-breakpoint', ''))
+      await legacyClient.exec((await readFile(path.join(process.cwd(), 'drizzle/0005_agent_job_leases.sql'), 'utf8')).replaceAll('--> statement-breakpoint', ''))
+      await legacyClient.exec((await readFile(path.join(process.cwd(), 'drizzle/0006_git_sync_leases.sql'), 'utf8')).replaceAll('--> statement-breakpoint', ''))
 
       const jobs = await legacyClient.query('SELECT * FROM agent_jobs')
       const columns = await legacyClient.query<{ column_name: string; is_nullable: string }>(`

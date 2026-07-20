@@ -17,8 +17,8 @@ const execMigration = async (client: PGlite, sql: string) => {
 }
 
 describe('exercise data migrations', () => {
-  it('keeps the already-applied 0009 baseline immutable', async () => {
-    const baseline = await readFile('drizzle/0009_seed_exercises.sql')
+  it('keeps the baseline migration immutable while using a Netlify-safe positive version', async () => {
+    const baseline = await readFile('drizzle/0010_seed_exercises.sql')
     expect(createHash('sha256').update(baseline).digest('hex')).toBe(
       '70f55dcb83f5c67dc21604d8f63fc9749765a2080d4c49237f294973db155d28',
     )
@@ -26,10 +26,10 @@ describe('exercise data migrations', () => {
 
   it('has a latest monotonic sync migration covering exactly 19 canonical exercises', async () => {
     const exercises = await loadCanonicalExercises()
-    await expect(verifyExerciseDataMigration()).resolves.toBe('0011_sync_exercises.sql')
+    await expect(verifyExerciseDataMigration()).resolves.toBe('0012_sync_exercises.sql')
     expect(exercises).toHaveLength(19)
     expect(new Set(exercises.map((exercise) => exercise.id)).size).toBe(19)
-    expect(await readFile('drizzle/0011_sync_exercises.sql', 'utf8')).toBe(await renderExerciseSyncMigration())
+    expect(await readFile('drizzle/0012_sync_exercises.sql', 'utf8')).toBe(await renderExerciseSyncMigration())
   })
 
   it('creates a new migration for JSON drift without overwriting migration history', async () => {
@@ -38,7 +38,7 @@ describe('exercise data migrations', () => {
     const migrationDirectory = path.join(root, 'drizzle')
     await cp('exercises', exercisesDirectory, { recursive: true })
     await cp('drizzle', migrationDirectory, { recursive: true })
-    const immutable = await readFile(path.join(migrationDirectory, '0011_sync_exercises.sql'), 'utf8')
+    const immutable = await readFile(path.join(migrationDirectory, '0012_sync_exercises.sql'), 'utf8')
 
     const file = path.join(exercisesDirectory, 'debounce.json')
     const changed = JSON.parse(await readFile(file, 'utf8')) as { prompt: string }
@@ -49,12 +49,12 @@ describe('exercise data migrations', () => {
       'does not match canonical exercise JSON',
     )
     await expect(generateNextExerciseDataMigration({ exercisesDirectory, migrationDirectory }))
-      .resolves.toBe('0012_sync_exercises.sql')
-    expect(await readFile(path.join(migrationDirectory, '0011_sync_exercises.sql'), 'utf8')).toBe(immutable)
+      .resolves.toBe('0013_sync_exercises.sql')
+    expect(await readFile(path.join(migrationDirectory, '0012_sync_exercises.sql'), 'utf8')).toBe(immutable)
     const journal = JSON.parse(await readFile(path.join(migrationDirectory, 'meta', '_journal.json'), 'utf8')) as {
       entries: Array<{ tag: string }>
     }
-    expect(journal.entries.at(-1)?.tag).toBe('0012_sync_exercises')
+    expect(journal.entries.at(-1)?.tag).toBe('0013_sync_exercises')
     await expect(generateNextExerciseDataMigration({ exercisesDirectory, migrationDirectory })).rejects.toThrow(
       'already covers canonical exercise JSON',
     )
@@ -70,10 +70,10 @@ describe('exercise data migrations', () => {
         updated_at timestamptz NOT NULL DEFAULT now()
       );
     `)
-    await execMigration(client, await readFile('drizzle/0009_seed_exercises.sql', 'utf8'))
-    await execMigration(client, await readFile('drizzle/0010_exercise_catalog_state.sql', 'utf8'))
+    await execMigration(client, await readFile('drizzle/0010_seed_exercises.sql', 'utf8'))
+    await execMigration(client, await readFile('drizzle/0011_exercise_catalog_state.sql', 'utf8'))
     await client.exec('CREATE TABLE exercise_history (exercise_id text REFERENCES exercises(id)); INSERT INTO exercise_history VALUES (\'debounce\');')
-    await execMigration(client, await readFile('drizzle/0011_sync_exercises.sql', 'utf8'))
+    await execMigration(client, await readFile('drizzle/0012_sync_exercises.sql', 'utf8'))
 
     const root = await mkdtemp(path.join(os.tmpdir(), 'exercise-replacement-'))
     const exercisesDirectory = path.join(root, 'exercises')

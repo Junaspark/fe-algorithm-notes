@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url'
 
 import { ExerciseSchema, type Exercise } from '@/domain/exercises/schema'
 
-export const EXERCISE_BASELINE_MIGRATION = '0009_seed_exercises.sql'
+export const EXERCISE_BASELINE_MIGRATION = '0010_seed_exercises.sql'
 export const EXERCISE_SYNC_MIGRATION_PATTERN = /^\d{4}_sync_exercises\.sql$/
 const EXPECTED_EXERCISE_COUNT = 19
 
