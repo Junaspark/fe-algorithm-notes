@@ -48,7 +48,7 @@ Required production keys:
 | `GITHUB_SYNC_TOKEN` | secret | repository-only token for `Junaspark/fe-algorithm-notes` |
 | `AGENT_BRIDGE_SECRET` | secret | generated locally; retained while mock is active |
 | `CODEX_BRIDGE_URL` | confidential endpoint | leave unset while mock is active |
-| `OWNER_USER_ID` | identifier | database user UUID after the first authorized login |
+| `OWNER_USER_ID` | optional identifier override | leave unset for normal operation; set only to override automatic owner resolution |
 | `GITHUB_REPOSITORY_OWNER` | configuration | `Junaspark` |
 | `GITHUB_REPOSITORY_NAME` | configuration | `fe-algorithm-notes` |
 | `GITHUB_SYNC_BRANCH` | safety control | `validation/promotion` until the final gate |
@@ -57,7 +57,7 @@ Required production keys:
 
 Load all other sensitive values into same-named, non-exported shell variables with a silent prompt (`read -rs 'AUTH_GITHUB_SECRET?GitHub client secret: '` in zsh). Set them from variable references, then immediately `unset` each local secret. The literal secret is absent from history; while each CLI process runs it is necessarily present in that process's argument list. For a host where other users can inspect process arguments, use the Netlify UI instead.
 
-Set the production scope first. Do not set `OWNER_USER_ID` until after the first verified login in section 5:
+Set the production scope first. Leave `OWNER_USER_ID` unset unless an operational override is specifically required. Scheduled jobs normally look up the unique normalized `Junaspark` user row after the first authorized login; zero, duplicate, or malformed matches fail closed with `EXPECTED_ONE_OWNER_USER`.
 
 ```bash
 pnpm --package=netlify-cli dlx netlify env:set AUTH_SECRET "$AUTH_SECRET" --context production
@@ -147,17 +147,7 @@ pnpm build:netlify
 pnpm --package=netlify-cli dlx netlify deploy --build --alias validation --context deploy-preview
 ```
 
-Record the deploy ID and verify its URL is exactly `https://validation--fe-algorithm-gym.netlify.app`. Sign in as `Junaspark`, then discover the persisted owner ID from the live database without hand-copying arbitrary rows:
-
-```bash
-OWNER_USER_ID="$(DATABASE_URL="$NETLIFY_DB_URL" pnpm --silent tsx scripts/find-owner-user-id.ts)"
-test -n "$OWNER_USER_ID"
-pnpm --package=netlify-cli dlx netlify env:set OWNER_USER_ID "$OWNER_USER_ID" --context deploy-preview
-unset OWNER_USER_ID
-pnpm --package=netlify-cli dlx netlify deploy --build --alias validation --context deploy-preview
-```
-
-The discovery script requires exactly one normalized `Junaspark` row and fails closed otherwise. After redeploy, verify `Junaspark` reaches `/today` and a different GitHub account reaches `/unauthorized`. On desktop and a phone, edit, run, submit, refresh/recover a draft, and finish one algorithm plus one frontend exercise. Confirm the Worker timeout recovery and `AGENT_ADAPTER=mock` review flow. The normal artifact must return 404 for E2E-only login/state routes. Do not promote if any gate fails.
+Record the deploy ID and verify its URL is exactly `https://validation--fe-algorithm-gym.netlify.app`. Sign in as `Junaspark`. The scheduled runtimes resolve the single normalized `Junaspark` database row automatically, so no owner-ID discovery, environment update, or redeploy is needed. If the lookup finds zero, duplicate, or malformed rows, it fails closed with `EXPECTED_ONE_OWNER_USER`. Verify `Junaspark` reaches `/today` and a different GitHub account reaches `/unauthorized`. On desktop and a phone, edit, run, submit, refresh/recover a draft, and finish one algorithm plus one frontend exercise. Confirm the Worker timeout recovery and `AGENT_ADAPTER=mock` review flow. The normal artifact must return 404 for E2E-only login/state routes. Do not promote if any gate fails.
 
 ## 6. Reminder and Codex Automation gate
 
@@ -209,16 +199,7 @@ git switch --detach origin/main
 pnpm --package=netlify-cli dlx netlify deploy --prod --build --context production
 ```
 
-Sign in to the production URL as `Junaspark`, discover the production owner row, set it in the production context, and redeploy the same merged SHA:
-
-```bash
-OWNER_USER_ID="$(DATABASE_URL="$NETLIFY_DB_URL" pnpm --silent tsx scripts/find-owner-user-id.ts)"
-pnpm --package=netlify-cli dlx netlify env:set OWNER_USER_ID "$OWNER_USER_ID" --context production
-unset OWNER_USER_ID
-pnpm --package=netlify-cli dlx netlify deploy --prod --build --context production
-```
-
-Verify `Junaspark` reaches `/today`, another account is denied, then smoke-test a real Worker run, submission, and both production cron endpoints manually. After those production gates pass, Switch both automation endpoint URLs to production (`https://fe-algorithm-gym.netlify.app/api/cron/morning` and `/api/cron/evening`), reload the production `CRON_SECRET` from the password manager into their secret store, and use **Run now** once more. Require visible desktop/mobile delivery from the production endpoints before changing schedule state. Enable both schedules only after this production notification check succeeds. Finally change Git sync from `validation/promotion` to `main`:
+Sign in to the production URL as `Junaspark`. The production scheduled runtimes resolve the single normalized owner row automatically; leave `OWNER_USER_ID` unset unless an explicit operational override is needed. Verify `Junaspark` reaches `/today`, another account is denied, then smoke-test a real Worker run, submission, and both production cron endpoints manually. After those production gates pass, Switch both automation endpoint URLs to production (`https://fe-algorithm-gym.netlify.app/api/cron/morning` and `/api/cron/evening`), reload the production `CRON_SECRET` from the password manager into their secret store, and use **Run now** once more. Require visible desktop/mobile delivery from the production endpoints before changing schedule state. Enable both schedules only after this production notification check succeeds. Finally change Git sync from `validation/promotion` to `main`:
 
 ```bash
 export GITHUB_SYNC_BRANCH=main

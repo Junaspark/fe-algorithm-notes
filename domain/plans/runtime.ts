@@ -1,5 +1,6 @@
 import { NotificationOutboxAdapter } from '@/adapters/notifications/outbox'
 import { db, sqlClient } from '@/db/client'
+import { resolveOwnerUserId } from '@/domain/auth/owner'
 import { createReminderService } from '@/domain/reminders/service'
 import { createPlanRepository } from './repository'
 import { createExerciseSelector, type ExerciseSelector, type SelectedExercise, type SelectionProfile, type SelectionSource } from './selector'
@@ -27,18 +28,22 @@ const source: SelectionSource = {
 
 const selector: ExerciseSelector = createExerciseSelector(source)
 
-const ownerId = () => {
-  const userId = process.env.OWNER_USER_ID
-  if (!userId) throw new Error('OWNER_USER_ID is required')
-  return userId
+type RuntimeDependencies = {
+  resolveOwner(): Promise<string>
 }
 
-export async function createMorningRuntime() {
-  const outbox = new NotificationOutboxAdapter()
-  return { ...createPlanService({ userId: ownerId(), plans, selector, notifications: outbox }), takeReminder: () => outbox.take() }
+const runtimeDefaults: RuntimeDependencies = {
+  resolveOwner: resolveOwnerUserId,
 }
 
-export async function createEveningRuntime() {
+export async function createMorningRuntime(dependencies: RuntimeDependencies = runtimeDefaults) {
+  const userId = await dependencies.resolveOwner()
   const outbox = new NotificationOutboxAdapter()
-  return { ...createReminderService({ userId: ownerId(), plans, notifications: outbox }), takeReminder: () => outbox.take() }
+  return { ...createPlanService({ userId, plans, selector, notifications: outbox }), takeReminder: () => outbox.take() }
+}
+
+export async function createEveningRuntime(dependencies: RuntimeDependencies = runtimeDefaults) {
+  const userId = await dependencies.resolveOwner()
+  const outbox = new NotificationOutboxAdapter()
+  return { ...createReminderService({ userId, plans, notifications: outbox }), takeReminder: () => outbox.take() }
 }
