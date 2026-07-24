@@ -41,7 +41,10 @@ describe('cron handlers', () => {
     const response = await createMorningRoute({ getSecret: () => 'correct', createRuntime: vi.fn().mockResolvedValue({ runMorningCheck, takeReminder: () => reminder }) })(new Request('http://localhost', { headers: { authorization: 'Bearer correct' } }))
     expect(runMorningCheck).toHaveBeenCalledOnce()
     expect(runMorningCheck).toHaveBeenCalledWith(new Date('2026-07-16T01:30:00Z'))
-    expect(await response.json()).toEqual({ planId: 'plan-1', created: true, remainingCount: 2, reminder, delivery: { id: 'morning:plan-1:2026-07-16', channel: 'codex-task-notification', message: reminder } })
+    const body = await response.json()
+    expect(body).toEqual({ planId: 'plan-1', created: true, remainingCount: 2, reminder: { kind: 'morning', remainingCount: 2, exerciseIds: ['alg', 'fe'] }, delivery: { id: 'morning:plan-1:2026-07-16', channel: 'codex-task-notification', message: { kind: 'morning', remainingCount: 2, exerciseIds: ['alg', 'fe'] } } })
+    expect(JSON.stringify(body)).not.toContain('user-1')
+    expect(JSON.stringify(body)).not.toContain('userId')
   })
 
   it('runs evening once at the frozen 20:00 Shanghai instant', async () => {
@@ -50,7 +53,26 @@ describe('cron handlers', () => {
     const reminder = { kind: 'evening', userId: 'user-1', planId: 'plan-1', remainingCount: 1, exerciseIds: ['alg'] }
     const response = await createEveningRoute({ getSecret: () => 'correct', createRuntime: vi.fn().mockResolvedValue({ runEveningCheck, takeReminder: () => reminder }) })(new Request('http://localhost', { headers: { authorization: 'Bearer correct' } }))
     expect(runEveningCheck).toHaveBeenCalledOnce()
-    expect(await response.json()).toEqual({ planId: 'plan-1', created: false, remainingCount: 1, reminder, delivery: { id: 'evening:plan-1:2026-07-16', channel: 'codex-task-notification', message: reminder } })
+    const body = await response.json()
+    expect(body).toEqual({ planId: 'plan-1', created: false, remainingCount: 1, reminder: { kind: 'evening', remainingCount: 1, exerciseIds: ['alg'] }, delivery: { id: 'evening:plan-1:2026-07-16', channel: 'codex-task-notification', message: { kind: 'evening', remainingCount: 1, exerciseIds: ['alg'] } } })
+    expect(JSON.stringify(body)).not.toContain('user-1')
+    expect(JSON.stringify(body)).not.toContain('userId')
+  })
+
+  it('does not expose the E2E owner UUID in either cron response', async () => {
+    vi.stubEnv('E2E_COMPILED', '1')
+    vi.stubEnv('E2E_TEST_MODE', '1')
+    vi.stubEnv('E2E_BIND_HOST', '127.0.0.1')
+    vi.stubEnv('E2E_ACCESS_SECRET', 'x'.repeat(32))
+    const request = new Request('http://localhost', { headers: { authorization: 'Bearer correct' } })
+
+    const morning = await createMorningRoute({ getSecret: () => 'correct', createRuntime: vi.fn() })(request)
+    const evening = await createEveningRoute({ getSecret: () => 'correct', createRuntime: vi.fn() })(request)
+
+    for (const body of [await morning.json(), await evening.json()]) {
+      expect(JSON.stringify(body)).not.toContain('00000000-0000-4000-8000-000000000001')
+      expect(JSON.stringify(body)).not.toContain('userId')
+    }
   })
 
   it('does not initialize evening runtime before authorization', async () => {

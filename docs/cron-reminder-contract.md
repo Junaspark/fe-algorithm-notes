@@ -9,8 +9,6 @@ The Codex scheduled task is the reminder delivery surface. Each authorized morni
   "remainingCount": 1,
   "reminder": {
     "kind": "morning-or-evening",
-    "userId": "owner-uuid",
-    "planId": "plan-uuid",
     "remainingCount": 1,
     "exerciseIds": ["exercise-id"]
   },
