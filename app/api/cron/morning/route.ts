@@ -1,5 +1,6 @@
 import type { NotificationMessage } from '@/adapters/notifications/port'
 import type { PlanCheckResult } from '@/domain/plans/service'
+import { cronErrorCode } from '../cron-error'
 import { isAuthorizedCronRequest } from '../auth'
 import { publicReminderResponse } from '../reminder-response'
 
@@ -31,9 +32,14 @@ export function createMorningRoute(dependencies: MorningRouteDependencies = defa
       const exerciseIds = state.plan.items.filter(x => x.status === 'pending').map(x => x.exerciseId); const reminder = { kind: 'morning' as const, exerciseIds, remainingCount: exerciseIds.length }
       state.reminders.push(reminder); return Response.json({ planId: state.plan.id, created, remainingCount: exerciseIds.length, ...publicReminderResponse({ ...reminder, userId: '00000000-0000-4000-8000-000000000001', planId: state.plan.id }, now) })
     }
-    const runtime = await dependencies.createRuntime()
-    const { planId, created, remainingCount } = await runtime.runMorningCheck(now)
-    return Response.json({ planId, created, remainingCount, ...publicReminderResponse(runtime.takeReminder(), now) })
+    try {
+      const runtime = await dependencies.createRuntime()
+      const { planId, created, remainingCount } = await runtime.runMorningCheck(now)
+      return Response.json({ planId, created, remainingCount, ...publicReminderResponse(runtime.takeReminder(), now) })
+    } catch (error) {
+      console.error('cron morning failed', { code: cronErrorCode(error) })
+      return Response.json({ error: 'Morning check failed' }, { status: 500 })
+    }
   }
 }
 
