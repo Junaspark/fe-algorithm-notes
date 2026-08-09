@@ -12,3 +12,14 @@ Thumbs.db
 # Secrets
 .env
 .env.*
+
+# Local brainstorming artifacts
+.superpowers/
+.worktrees/
+.next/
+*.tsbuildinfo
+test-results/
+node_modules/
+
+# Local Netlify folder
+.netlify

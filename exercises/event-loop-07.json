@@ -1,0 +1,41 @@
+{
+  "id": "event-loop-07",
+  "title": "Event Loop 07：综合题",
+  "kind": "frontend",
+  "difficulty": "medium",
+  "language": "javascript",
+  "topics": [
+    "Event Loop"
+  ],
+  "prompt": "同步阶段建立微任务 B、G、H；按 FIFO 清空，再执行宏任务 E。",
+  "starterCode": "async function async1() {\n  console.log('A')\n  await async2()\n  console.log('B')\n}\n\nasync function async2() {\n  console.log('C')\n}\n\nconsole.log('D')\n\nsetTimeout(() => {\n  console.log('E')\n}, 0)\n\nasync1()\n\nnew Promise(resolve => {\n  console.log('F')\n  resolve()\n}).then(() => {\n  console.log('G')\n})\n\nPromise.resolve().then(() => {\n  console.log('H')\n})\n\nconsole.log('I')",
+  "evaluation": {
+    "mode": "console-output"
+  },
+  "publicTests": [
+    {
+      "name": "匹配文档化完整输出顺序",
+      "args": [],
+      "expected": "D → A → C → F → I → B → G → H → E",
+      "timeoutMs": 1000
+    }
+  ],
+  "hiddenTests": [],
+  "legacy": {
+    "status": "已通过",
+    "complexity": "考察执行顺序，不涉及传统算法复杂度",
+    "mistakes": [
+      "正确输出：D → A → C → F → I → B → G → H → E"
+    ],
+    "questions": [
+      "请按同步任务、微任务、宏任务列出入队过程。"
+    ],
+    "id": 19,
+    "title": "Event Loop 07：综合题",
+    "category": "Event Loop",
+    "difficulty": "中等",
+    "summary": "同步阶段建立微任务 B、G、H；按 FIFO 清空，再执行宏任务 E。",
+    "code": "async function async1() {\n  console.log('A')\n  await async2()\n  console.log('B')\n}\n\nasync function async2() {\n  console.log('C')\n}\n\nconsole.log('D')\n\nsetTimeout(() => {\n  console.log('E')\n}, 0)\n\nasync1()\n\nnew Promise(resolve => {\n  console.log('F')\n  resolve()\n}).then(() => {\n  console.log('G')\n})\n\nPromise.resolve().then(() => {\n  console.log('H')\n})\n\nconsole.log('I')",
+    "answer": "D → A → C → F → I → B → G → H → E"
+  }
+}

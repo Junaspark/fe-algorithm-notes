@@ -1,0 +1,42 @@
+{
+  "id": "my-set-interval",
+  "title": "mySetInterval",
+  "kind": "frontend",
+  "difficulty": "medium",
+  "language": "javascript",
+  "topics": [
+    "定时器"
+  ],
+  "prompt": "通过递归 setTimeout 在每次执行后调度下一次任务，并提供 cancel。",
+  "starterCode": "function mySetInterval(fn, delay) {\n  let timer\n  let cancelled = false\n\n  function run() {\n    if (cancelled) return\n\n    timer = setTimeout(() => {\n      fn()\n      run()\n    }, delay)\n  }\n\n  run()\n\n  return {\n    cancel() {\n      cancelled = true\n      clearTimeout(timer)\n    }\n  }\n}",
+  "evaluation": {
+    "mode": "function"
+  },
+  "publicTests": [
+    {
+      "name": "通过规范行为场景",
+      "args": [],
+      "expected": true,
+      "scenario": "my-set-interval",
+      "timeoutMs": 3000
+    }
+  ],
+  "hiddenTests": [],
+  "legacy": {
+    "status": "二次提交通过",
+    "complexity": "每轮调度时间和额外空间 O(1)",
+    "mistakes": [
+      "while (true) 会阻塞事件循环并无限注册定时器。"
+    ],
+    "questions": [
+      "递归 setTimeout 与 setInterval 有什么差别？",
+      "如何补偿定时漂移？"
+    ],
+    "id": 11,
+    "title": "mySetInterval",
+    "category": "定时器",
+    "difficulty": "中等",
+    "summary": "通过递归 setTimeout 在每次执行后调度下一次任务，并提供 cancel。",
+    "code": "function mySetInterval(fn, delay) {\n  let timer\n  let cancelled = false\n\n  function run() {\n    if (cancelled) return\n\n    timer = setTimeout(() => {\n      fn()\n      run()\n    }, delay)\n  }\n\n  run()\n\n  return {\n    cancel() {\n      cancelled = true\n      clearTimeout(timer)\n    }\n  }\n}"
+  }
+}

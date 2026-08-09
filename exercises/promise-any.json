@@ -1,0 +1,42 @@
+{
+  "id": "promise-any",
+  "title": "Promise.any",
+  "kind": "frontend",
+  "difficulty": "medium",
+  "language": "javascript",
+  "topics": [
+    "Promise"
+  ],
+  "prompt": "第一个 fulfilled 的成员决定结果；只有全部 rejected 才以 AggregateError 失败。",
+  "starterCode": "function promiseAny(iterable) {\n  return new Promise((resolve, reject) => {\n    const promises = Array.from(iterable)\n\n    if (promises.length === 0) {\n      reject(new AggregateError([], 'All promises were rejected'))\n      return\n    }\n\n    const errors = []\n    let rejectedCount = 0\n\n    promises.forEach((item, index) => {\n      Promise.resolve(item).then(resolve, reason => {\n        errors[index] = reason\n        rejectedCount++\n\n        if (rejectedCount === promises.length) {\n          reject(\n            new AggregateError(errors, 'All promises were rejected')\n          )\n        }\n      })\n    })\n  })\n}",
+  "evaluation": {
+    "mode": "function"
+  },
+  "publicTests": [
+    {
+      "name": "通过规范行为场景",
+      "args": [],
+      "expected": true,
+      "scenario": "promise-any",
+      "timeoutMs": 3000
+    }
+  ],
+  "hiddenTests": [],
+  "legacy": {
+    "status": "修正后通过",
+    "complexity": "时间 O(n)，空间 O(n)",
+    "mistakes": [
+      "AggregateError 的第一个参数应是失败原因列表；any([]) 立即 reject。"
+    ],
+    "questions": [
+      "为什么 errors 要按输入索引保存？",
+      "Promise.any 与 Promise.race 如何选择？"
+    ],
+    "id": 10,
+    "title": "Promise.any",
+    "category": "Promise",
+    "difficulty": "中等",
+    "summary": "第一个 fulfilled 的成员决定结果；只有全部 rejected 才以 AggregateError 失败。",
+    "code": "function promiseAny(iterable) {\n  return new Promise((resolve, reject) => {\n    const promises = Array.from(iterable)\n\n    if (promises.length === 0) {\n      reject(new AggregateError([], 'All promises were rejected'))\n      return\n    }\n\n    const errors = []\n    let rejectedCount = 0\n\n    promises.forEach((item, index) => {\n      Promise.resolve(item).then(resolve, reason => {\n        errors[index] = reason\n        rejectedCount++\n\n        if (rejectedCount === promises.length) {\n          reject(\n            new AggregateError(errors, 'All promises were rejected')\n          )\n        }\n      })\n    })\n  })\n}"
+  }
+}

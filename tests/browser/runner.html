@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8"><title>Runner browser harness</title></head>
+  <body>
+    <script type="module">
+      import { runTests, setRunnerWorkerFactory } from '/workers/runner-client.ts'
+      globalThis.runnerHarness = { runTests, setRunnerWorkerFactory }
+    </script>
+  </body>
+</html>

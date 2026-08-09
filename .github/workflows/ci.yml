@@ -1,0 +1,44 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm tsc --noEmit
+      - run: pnpm test
+      - run: pnpm migration:compare
+      - run: pnpm vitest run tests/deployment/exercise-data-migration.test.ts
+      - run: pnpm netlify:migrations
+      - run: pnpm vitest run tests/deployment/netlify-migrations.test.ts
+      - name: Require committed exercise data and Netlify migrations to match their canonical sources
+        run: |
+          git diff --exit-code -- drizzle netlify/database/migrations
+          test -z "$(git status --porcelain --untracked-files=all -- drizzle netlify/database/migrations)"
+      - name: Build publishable production artifact (E2E seams compiled out)
+        run: pnpm build:netlify
+        env:
+          AUTH_SECRET: production-build
+          AUTH_GITHUB_ID: production-build
+          AUTH_GITHUB_SECRET: production-build
+          DATABASE_URL: http://unused.invalid
+      - name: Build isolated E2E-only artifact (never published)
+        run: pnpm build
+        env:
+          E2E_COMPILE: '1'
+          AUTH_SECRET: e2e-build
+          AUTH_GITHUB_ID: e2e-build
+          AUTH_GITHUB_SECRET: e2e-build
+          DATABASE_URL: http://unused.invalid
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm playwright test

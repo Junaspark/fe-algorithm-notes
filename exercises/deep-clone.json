@@ -1,0 +1,42 @@
+{
+  "id": "deep-clone",
+  "title": "deepClone（基础版）",
+  "kind": "algorithm",
+  "difficulty": "medium",
+  "language": "javascript",
+  "topics": [
+    "对象"
+  ],
+  "prompt": "递归复制普通对象和数组；当前基础版未覆盖循环引用及特殊对象。",
+  "starterCode": "function deepClone(value) {\n  if (value === null || typeof value !== 'object') {\n    return value\n  }\n\n  const result = Array.isArray(value) ? [] : {}\n\n  Reflect.ownKeys(value).forEach(key => {\n    result[key] = deepClone(value[key])\n  })\n\n  return result\n}",
+  "evaluation": {
+    "mode": "function"
+  },
+  "publicTests": [
+    {
+      "name": "通过规范行为场景",
+      "args": [],
+      "expected": true,
+      "scenario": "deep-clone",
+      "timeoutMs": 3000
+    }
+  ],
+  "hiddenTests": [],
+  "legacy": {
+    "status": "已通过，建议升级",
+    "complexity": "时间 O(n)，空间 O(n)，n 为节点总数",
+    "mistakes": [
+      "基础版不支持循环引用、Date、RegExp、Map、Set。"
+    ],
+    "questions": [
+      "如何用 WeakMap 解决循环引用？",
+      "属性描述符和原型链如何保留？"
+    ],
+    "id": 5,
+    "title": "deepClone（基础版）",
+    "category": "对象",
+    "difficulty": "中等",
+    "summary": "递归复制普通对象和数组；当前基础版未覆盖循环引用及特殊对象。",
+    "code": "function deepClone(value) {\n  if (value === null || typeof value !== 'object') {\n    return value\n  }\n\n  const result = Array.isArray(value) ? [] : {}\n\n  Reflect.ownKeys(value).forEach(key => {\n    result[key] = deepClone(value[key])\n  })\n\n  return result\n}"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "id": "event-loop-05",
+  "title": "Event Loop 05：Promise executor",
+  "kind": "frontend",
+  "difficulty": "medium",
+  "language": "javascript",
+  "topics": [
+    "Event Loop"
+  ],
+  "prompt": "Promise executor 同步执行；then 回调进入微任务队列。",
+  "starterCode": "async function async1() {\n  console.log('async1 start')\n  await async2()\n  console.log('async1 end')\n}\n\nasync function async2() {\n  console.log('async2')\n}\n\nconsole.log('script start')\n\nsetTimeout(() => {\n  console.log('setTimeout')\n}, 0)\n\nasync1()\n\nnew Promise(resolve => {\n  console.log('promise1')\n  resolve()\n}).then(() => {\n  console.log('promise2')\n})\n\nconsole.log('script end')",
+  "evaluation": {
+    "mode": "console-output"
+  },
+  "publicTests": [
+    {
+      "name": "匹配文档化完整输出顺序",
+      "args": [],
+      "expected": "script start → async1 start → async2 → promise1 → script end → async1 end → promise2 → setTimeout",
+      "timeoutMs": 1000
+    }
+  ],
+  "hiddenTests": [],
+  "legacy": {
+    "status": "已通过",
+    "complexity": "考察执行顺序，不涉及传统算法复杂度",
+    "mistakes": [
+      "正确输出：script start → async1 start → async2 → promise1 → script end → async1 end → promise2 → setTimeout"
+    ],
+    "questions": [
+      "请按同步任务、微任务、宏任务列出入队过程。"
+    ],
+    "id": 17,
+    "title": "Event Loop 05：Promise executor",
+    "category": "Event Loop",
+    "difficulty": "中等",
+    "summary": "Promise executor 同步执行；then 回调进入微任务队列。",
+    "code": "async function async1() {\n  console.log('async1 start')\n  await async2()\n  console.log('async1 end')\n}\n\nasync function async2() {\n  console.log('async2')\n}\n\nconsole.log('script start')\n\nsetTimeout(() => {\n  console.log('setTimeout')\n}, 0)\n\nasync1()\n\nnew Promise(resolve => {\n  console.log('promise1')\n  resolve()\n}).then(() => {\n  console.log('promise2')\n})\n\nconsole.log('script end')",
+    "answer": "script start → async1 start → async2 → promise1 → script end → async1 end → promise2 → setTimeout"
+  }
+}
