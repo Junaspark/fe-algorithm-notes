@@ -26,6 +26,9 @@ const source: SelectionSource = {
   findUnseen({ userId }: SelectionProfile, kind: ExerciseKind) {
     return one(sqlClient`select e.id, e.kind from exercises e where e.kind = ${kind} and e.active = true and not exists (select 1 from submissions s where s.user_id = ${userId} and s.exercise_id = e.id) order by e.id limit 1`)
   },
+  findCompleted({ userId }: SelectionProfile, kind: ExerciseKind) {
+    return one(sqlClient`select e.id, e.kind from exercises e where e.kind = ${kind} and e.active = true and exists (select 1 from submissions s where s.user_id = ${userId} and s.exercise_id = e.id and s.status = 'passed') order by (select max(s.created_at) from submissions s where s.user_id = ${userId} and s.exercise_id = e.id and s.status = 'passed'), e.id limit 1`)
+  },
 }
 
 const selector: ExerciseSelector = createExerciseSelector(source)

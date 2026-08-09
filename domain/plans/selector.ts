@@ -7,6 +7,7 @@ export interface SelectionSource {
   findDueReview(profile: SelectionProfile, kind: ExerciseKind): Promise<SelectedExercise | null>
   findWeakTopic(profile: SelectionProfile, kind: ExerciseKind): Promise<SelectedExercise | null>
   findUnseen(profile: SelectionProfile, kind: ExerciseKind): Promise<SelectedExercise | null>
+  findCompleted(profile: SelectionProfile, kind: ExerciseKind): Promise<SelectedExercise | null>
 }
 
 export interface ExerciseSelector {
@@ -20,6 +21,7 @@ export function createExerciseSelector(source: SelectionSource): ExerciseSelecto
         const exercise = await source.findDueReview(profile, kind)
           ?? await source.findWeakTopic(profile, kind)
           ?? await source.findUnseen(profile, kind)
+          ?? await source.findCompleted(profile, kind)
         if (!exercise) throw new Error(`NO_${kind.toUpperCase()}_EXERCISE_AVAILABLE`)
         if (exercise.kind !== kind) throw new Error('SELECTOR_KIND_MISMATCH')
         return exercise

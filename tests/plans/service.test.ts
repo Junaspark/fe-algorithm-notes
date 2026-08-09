@@ -97,10 +97,24 @@ describe('exercise selector', () => {
       findDueReview: vi.fn().mockResolvedValueOnce({ id: 'due-alg', kind: 'algorithm' }).mockResolvedValueOnce(null),
       findWeakTopic: vi.fn().mockResolvedValue({ id: 'weak-fe', kind: 'frontend' }),
       findUnseen: vi.fn(),
+      findCompleted: vi.fn(),
     }
     await expect(createExerciseSelector(source).select({ userId: 'user-1', now: new Date() })).resolves.toEqual([
       { id: 'due-alg', kind: 'algorithm' }, { id: 'weak-fe', kind: 'frontend' },
     ])
     expect(source.findUnseen).not.toHaveBeenCalled()
+  })
+
+  it('falls back to a completed exercise when a kind has no due, weak, or unseen candidate', async () => {
+    const source = {
+      findDueReview: vi.fn().mockResolvedValue(null),
+      findWeakTopic: vi.fn().mockResolvedValue(null),
+      findUnseen: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'unseen-fe', kind: 'frontend' }),
+      findCompleted: vi.fn().mockResolvedValue({ id: 'reviewed-alg', kind: 'algorithm' }),
+    }
+
+    await expect(createExerciseSelector(source).select({ userId: 'user-1', now: new Date() })).resolves.toEqual([
+      { id: 'reviewed-alg', kind: 'algorithm' }, { id: 'unseen-fe', kind: 'frontend' },
+    ])
   })
 })
